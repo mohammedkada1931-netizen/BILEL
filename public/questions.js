@@ -17,18 +17,18 @@ export const LEVEL_LABELS = {
 export const LEVELS = {
   debutant: {
     label: 'Débutant',
-    description: "Reconnaissance des lettres et des sons de base",
+    description: 'Reconnaissance des lettres et des sons de base',
     questions: [
       {
         prompt: 'Quelle est cette lettre ؟',
         arabic: 'ا',
-        options: ['Alif', 'Bâ’', 'Tâ’', 'Thâ’'],
+        options: ['أَلِف', 'بَاء', 'تَاء', 'ثَاء'],
         correct: 0,
       },
       {
         prompt: 'Quelle est cette lettre ؟',
         arabic: 'م',
-        options: ['Nûn', 'Mîm', 'Lâm', 'Râ’'],
+        options: ['نُون', 'مِيم', 'لَام', 'رَاء'],
         correct: 1,
       },
       {
@@ -42,19 +42,19 @@ export const LEVELS = {
         correct: 2,
       },
       {
-        prompt: 'Sur la lettre "بَ", quelle voyelle (harakah) est écrite ؟',
-        options: ['Fatha (a)', 'Kasra (i)', 'Damma (ou)', 'Soukoun'],
+        prompt: 'Sur la lettre "بَ", quelle voyelle est écrite ؟',
+        options: ['فَتْحَة (a)', 'كَسْرَة (i)', 'ضَمَّة (ou)', 'سُكُون'],
         correct: 0,
       },
       {
-        prompt: 'Sur la lettre "بِ", quelle voyelle (harakah) est écrite ؟',
-        options: ['Fatha (a)', 'Kasra (i)', 'Damma (ou)', 'Soukoun'],
+        prompt: 'Sur la lettre "بِ", quelle voyelle est écrite ؟',
+        options: ['فَتْحَة (a)', 'كَسْرَة (i)', 'ضَمَّة (ou)', 'سُكُون'],
         correct: 1,
       },
       {
-        prompt: "Combien de lettres compte l'alphabet arabe ؟",
-        options: ['24', '26', '28', '30'],
-        correct: 2,
+        prompt: 'Quel mot veut dire "soleil" ؟',
+        options: ['شَمْس', 'قَمَر', 'بَيْت', 'مَاء'],
+        correct: 0,
       },
       {
         prompt: 'Que signifie le mot "قَمَر" ؟',
@@ -62,14 +62,14 @@ export const LEVELS = {
         correct: 1,
       },
       {
-        prompt: 'Quelle lettre est-ce ؟',
+        prompt: 'Quelle est cette lettre ؟',
         arabic: 'ع',
-        options: ['Ghayn', '‘Ayn', 'Hâ’', 'Khâ’'],
+        options: ['غَيْن', 'عَيْن', 'حَاء', 'خَاء'],
         correct: 1,
       },
       {
         prompt: 'Quel mot se lit "بَاب" (porte) ؟',
-        options: ['باب', 'بيت', 'باز', 'تاب'],
+        options: ['بَاب', 'بَيْت', 'بَاز', 'تَاب'],
         correct: 0,
       },
     ],
@@ -85,9 +85,9 @@ export const LEVELS = {
         correct: 1,
       },
       {
-        prompt: 'Quel est le pluriel de "كِتَاب" (livre) ؟',
-        options: ['كُتُب', 'كِتَابَات', 'كَاتِب', 'مَكْتَب'],
-        correct: 0,
+        prompt: 'Que signifie le mot "أُمّ" ؟',
+        options: ['Père', 'Mère', 'Frère', 'Sœur'],
+        correct: 1,
       },
       {
         prompt: 'Complétez : "أَنَا ___ الطَّعَامَ" (je mange la nourriture)',
@@ -105,13 +105,13 @@ export const LEVELS = {
         correct: 2,
       },
       {
-        prompt: 'Dans la phrase "هَذَا وَلَدٌ", que signifie "هَذَا" ؟',
-        options: ['Ceci (féminin)', 'Ceci (masculin)', 'Cela (féminin)', 'Ils'],
-        correct: 1,
+        prompt: 'Lisez : "هَذَا وَلَدٌ صَغِير". De qui parle-t-on ؟',
+        options: ['Un garçon', 'Une fille', 'Un chat', 'Un livre'],
+        correct: 0,
       },
       {
-        prompt: 'Suite logique : واحد، اثنان، ثلاثة، ___',
-        options: ['خمسة', 'أربعة', 'ستة', 'سبعة'],
+        prompt: 'Suite logique : وَاحِد، اِثْنَان، ثَلَاثَة، ___',
+        options: ['خَمْسَة', 'أَرْبَعَة', 'سِتَّة', 'سَبْعَة'],
         correct: 1,
       },
       {
@@ -134,7 +134,7 @@ export const LEVELS = {
 
   niveau2: {
     label: 'Niveau 2',
-    description: 'Lecture de phrases et grammaire de base',
+    description: 'Lecture de phrases simples',
     questions: [
       {
         prompt: 'Lisez : "ذَهَبَتْ فَاطِمَةُ إِلَى الْمَدْرَسَةِ صَبَاحًا." Qui est allé(e) à l\'école ؟',
@@ -142,22 +142,17 @@ export const LEVELS = {
         correct: 1,
       },
       {
-        prompt: 'Le mot "الْبِنْتُ" est :',
-        options: ['Masculin (مذكر)', 'Féminin (مؤنث)', 'Pluriel', 'Duel'],
+        prompt: 'Quel mot veut dire "des filles" ؟',
+        options: ['بِنْت', 'بَنَات', 'وَلَد', 'أَوْلَاد'],
         correct: 1,
       },
       {
-        prompt: 'Quel est le pluriel de "مُعَلِّم" (enseignant) ؟',
-        options: ['مُعَلِّمُون', 'مُعَلِّمَات فَقَط', 'مُعَلَّم', 'مَعَالِم'],
-        correct: 0,
-      },
-      {
-        prompt: 'Ajoutez l\'article défini "ال" correctement à "كتاب" :',
-        options: ['أَلكتاب', 'الكتاب', 'كتابال', 'لكتاب'],
+        prompt: 'Ajoutez "le/la" (اَل) correctement à "كِتَاب" (livre) :',
+        options: ['أَلكِتَاب', 'الْكِتَاب', 'كِتَابَال', 'لْكِتَاب'],
         correct: 1,
       },
       {
-        prompt: 'Complétez au présent : "هُوَ ___ إِلَى السُّوقِ" (aller)',
+        prompt: 'Complétez : "هُوَ ___ إِلَى السُّوقِ" (il va au marché)',
         options: ['ذَهَبَ', 'يَذْهَبُ', 'اِذْهَبْ', 'ذَاهِب'],
         correct: 1,
       },
@@ -172,26 +167,31 @@ export const LEVELS = {
         correct: 0,
       },
       {
-        prompt: 'Dans "أَكَلَ الْوَلَدُ التُّفَّاحَةَ", quel est le sujet (الفاعل) ؟',
-        options: ['أَكَلَ', 'الْوَلَدُ', 'التُّفَّاحَةَ', 'aucun'],
+        prompt: 'Lisez : "أَكَلَ الْوَلَدُ التُّفَّاحَةَ." Qu\'est-ce que le garçon a mangé ؟',
+        options: ['Du pain', 'Une pomme', 'Une orange', 'Du riz'],
         correct: 1,
       },
       {
-        prompt: 'Quel mot est correctement au pluriel de "بِنْت" (fille) ؟',
-        options: ['بِنْتُون', 'بَنَات', 'بُنُوت', 'أَبْنَاء'],
-        correct: 1,
-      },
-      {
-        prompt: 'Complétez : "نَحْنُ ___ فِي الْحَدِيقَةِ" (jouer, nous)',
+        prompt: 'Complétez : "نَحْنُ ___ فِي الْحَدِيقَةِ" (nous jouons dans le jardin)',
         options: ['يَلْعَبُ', 'تَلْعَبُ', 'نَلْعَبُ', 'أَلْعَبُ'],
         correct: 2,
+      },
+      {
+        prompt: 'Que signifie "مُعَلِّم" ؟',
+        options: ['Élève', 'Enseignant', 'Docteur', 'Voisin'],
+        correct: 1,
+      },
+      {
+        prompt: 'Lisez : "الْبَيْتُ كَبِيرٌ وَجَمِيلٌ." Comment est la maison ؟',
+        options: ['Petite et laide', 'Grande et belle', 'Vieille', 'Vide'],
+        correct: 1,
       },
     ],
   },
 
   niveau3: {
     label: 'Niveau 3',
-    description: 'Lecture de textes, conjugaison et analyse grammaticale',
+    description: 'Lecture de petits textes et conjugaison simple',
     questions: [
       {
         prompt:
@@ -205,22 +205,22 @@ export const LEVELS = {
         correct: 0,
       },
       {
-        prompt: 'Dans "قَرَأَ الطَّالِبُ الدَّرْسَ", quel mot est le "مفعول به" (complément d\'objet) ؟',
-        options: ['قَرَأَ', 'الطَّالِبُ', 'الدَّرْسَ', 'aucun'],
-        correct: 2,
+        prompt: 'Lisez : "قَرَأَ الطَّالِبُ الدَّرْسَ بِاِنْتِبَاهٍ." Qu\'est-ce que l\'élève a lu ؟',
+        options: ['Une lettre', 'La leçon', 'Un journal', 'Un message'],
+        correct: 1,
       },
       {
-        prompt: 'Quel est le pluriel irrégulier (جمع تكسير) de "رَجُل" (homme) ؟',
+        prompt: 'Quel est le pluriel de "رَجُل" (homme) ؟',
         options: ['رَجُلُون', 'رِجَال', 'رَجُلَات', 'أَرْجُل'],
         correct: 1,
       },
       {
-        prompt: 'Quel verbe est au passé (الماضي) ؟',
+        prompt: 'Quel verbe est au passé (une action déjà terminée) ؟',
         options: ['يَذْهَبُ', 'اِذْهَبْ', 'ذَهَبَ', 'ذَاهِب'],
         correct: 2,
       },
       {
-        prompt: 'Complétez avec la bonne préposition : "ذَهَبْتُ ___ الْبَيْتِ" (je suis allé à la maison)',
+        prompt: 'Complétez avec le bon mot : "ذَهَبْتُ ___ الْبَيْتِ" (je suis allé à la maison)',
         options: ['فِي', 'إِلَى', 'عَلَى', 'مَعَ'],
         correct: 1,
       },
@@ -236,17 +236,17 @@ export const LEVELS = {
         correct: 1,
       },
       {
-        prompt: 'Quelle phrase est correctement construite (ordre verbe-sujet) ؟',
-        options: ['الولدُ ذهبَ', 'ذهبَ الولدُ', 'ذهبَ إلى الولدُ', 'الولدُ إلى ذهبَ'],
+        prompt: 'Quelle phrase est correctement écrite ؟',
+        options: ['الْوَلَدُ ذَهَبَ', 'ذَهَبَ الْوَلَدُ', 'ذَهَبَ إِلَى الْوَلَدُ', 'الْوَلَدُ إِلَى ذَهَبَ'],
         correct: 1,
       },
       {
-        prompt: 'Le mot "يَلْعَبُونَ" indique un sujet :',
-        options: ['Singulier', 'Duel', 'Pluriel masculin', 'Pluriel féminin'],
+        prompt: 'Le mot "يَلْعَبُونَ" parle de :',
+        options: ['Une seule personne', 'Deux personnes', 'Plusieurs garçons', 'Plusieurs filles'],
         correct: 2,
       },
       {
-        prompt: 'Quel est l\'impératif (الأمر) du verbe "قَرَأَ" (lire) ؟',
+        prompt: 'Comment dit-on "Lis !" (ordre donné à quelqu\'un) ؟',
         options: ['يَقْرَأُ', 'اِقْرَأْ', 'قَارِئ', 'مَقْرُوء'],
         correct: 1,
       },

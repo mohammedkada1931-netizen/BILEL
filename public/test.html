@@ -9,7 +9,7 @@
 <body>
   <div class="topbar">
     <h1>École Arabe de la Mosquée</h1>
-    <p class="arabic" id="student-name-ar">اختبار تحديد المستوى</p>
+    <p class="arabic" id="student-name-ar">اِخْتِبَارُ تَحْدِيدِ الْمُسْتَوَى</p>
   </div>
 
   <div class="page">
@@ -181,6 +181,23 @@
       } catch (err) {
         // On affiche quand même le résultat à l'élève même si la sauvegarde échoue.
         console.error('Erreur de sauvegarde du résultat', err);
+      }
+
+      try {
+        // Envoie une notification (email) au directeur via Netlify Forms.
+        await fetch('/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            'form-name': 'resultats',
+            prenom: student.firstName,
+            nom: student.lastName,
+            age: String(student.age),
+            niveau: finalLevel,
+          }).toString(),
+        });
+      } catch (err) {
+        console.error('Erreur d\'envoi de la notification', err);
       }
 
       sessionStorage.removeItem('ecole-arabe-student');
