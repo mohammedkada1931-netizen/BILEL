@@ -41,16 +41,6 @@
     </p>
   </div>
 
-  <!-- Formulaire caché : sert uniquement à ce que Netlify détecte le formulaire "resultats"
-       à la construction du site, pour pouvoir envoyer une notification par email au directeur
-       à chaque résultat d'élève (voir test.html, qui envoie les vraies données). -->
-  <form name="resultats" data-netlify="true" hidden>
-    <input type="text" name="prenom" />
-    <input type="text" name="nom" />
-    <input type="text" name="age" />
-    <input type="text" name="niveau" />
-  </form>
-
   <script>
     const form = document.getElementById('start-form');
     const errorEl = document.getElementById('form-error');

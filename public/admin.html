@@ -84,53 +84,49 @@
       }
     }
 
+    const LEVEL_ORDER = ['Débutant', 'Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
+
     function renderDashboard() {
-      const levels = [...new Set(allResults.map((r) => r.finalLevel))];
       const counts = allResults.reduce((acc, r) => {
         acc[r.finalLevel] = (acc[r.finalLevel] || 0) + 1;
         return acc;
       }, {});
 
-      let filtered = allResults.filter((r) => {
-        if (filterLevel && r.finalLevel !== filterLevel) return false;
+      const filtered = allResults.filter((r) => {
         if (searchQuery) {
           const full = `${r.firstName} ${r.lastName}`.toLowerCase();
           if (!full.includes(searchQuery.toLowerCase())) return false;
         }
         return true;
       });
-      filtered.sort((a, b) => (sortDesc ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date)));
+
+      const groups = LEVEL_ORDER.map((lvl) => {
+        const rows = filtered
+          .filter((r) => r.finalLevel === lvl)
+          .sort((a, b) => (sortDesc ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date)));
+        return { level: lvl, rows };
+      });
 
       app.innerHTML = `
         <div class="stat-cards">
           <div class="stat-card"><div class="num">${allResults.length}</div><div class="lbl">Élèves testés</div></div>
-          ${['Débutant', 'Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4']
-            .map((lvl) => `<div class="stat-card"><div class="num">${counts[lvl] || 0}</div><div class="lbl">${lvl}</div></div>`)
-            .join('')}
+          ${LEVEL_ORDER.map((lvl) => `<div class="stat-card"><div class="num">${counts[lvl] || 0}</div><div class="lbl">${lvl}</div></div>`).join('')}
         </div>
 
         <div class="card">
           <div class="toolbar">
             <input type="text" id="search" placeholder="Rechercher un élève..." value="${escapeHtml(searchQuery)}" />
-            <select id="level-filter">
-              <option value="">Tous les niveaux</option>
-              ${levels.map((l) => `<option value="${escapeHtml(l)}" ${l === filterLevel ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
-            </select>
             <button class="btn btn-secondary" id="sort-btn">Trier : ${sortDesc ? 'Plus récent' : 'Plus ancien'}</button>
-            <button class="btn btn-secondary" id="export-btn">Exporter CSV</button>
+            <button class="btn btn-secondary" id="export-btn">Exporter CSV (tout)</button>
             <button class="btn btn-secondary" id="logout-btn">Déconnexion</button>
           </div>
-
-          ${filtered.length === 0 ? '<p class="muted">Aucun résultat.</p>' : renderTable(filtered)}
         </div>
+
+        ${groups.map((g) => renderLevelSection(g.level, g.rows)).join('')}
       `;
 
       document.getElementById('search').addEventListener('input', (e) => {
         searchQuery = e.target.value;
-        renderDashboard();
-      });
-      document.getElementById('level-filter').addEventListener('change', (e) => {
-        filterLevel = e.target.value;
         renderDashboard();
       });
       document.getElementById('sort-btn').addEventListener('click', () => {
@@ -158,6 +154,15 @@
       });
     }
 
+    function renderLevelSection(level, rows) {
+      return `
+        <div class="card">
+          <h3 style="margin-top:0;">${escapeHtml(level)} <span class="muted" style="font-weight:400;">(${rows.length} élève${rows.length > 1 ? 's' : ''})</span></h3>
+          ${rows.length === 0 ? '<p class="muted">Aucun élève à ce niveau.</p>' : renderTable(rows)}
+        </div>
+      `;
+    }
+
     function renderTable(rows) {
       return `
         <table>
@@ -166,7 +171,6 @@
               <th>Nom</th>
               <th>Prénom</th>
               <th>Âge</th>
-              <th>Niveau</th>
               <th>Détail</th>
               <th>Date</th>
               <th></th>
@@ -180,7 +184,6 @@
                 <td>${escapeHtml(r.lastName)}</td>
                 <td>${escapeHtml(r.firstName)}</td>
                 <td>${r.age}</td>
-                <td><span class="pill">${escapeHtml(r.finalLevel)}</span></td>
                 <td class="muted">${formatScores(r.levelScores)}</td>
                 <td class="muted">${new Date(r.date).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                 <td><button class="icon-btn" data-delete-id="${r.id}">Supprimer</button></td>

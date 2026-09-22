@@ -183,23 +183,6 @@
         console.error('Erreur de sauvegarde du résultat', err);
       }
 
-      try {
-        // Envoie une notification (email) au directeur via Netlify Forms.
-        await fetch('/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            'form-name': 'resultats',
-            prenom: student.firstName,
-            nom: student.lastName,
-            age: String(student.age),
-            niveau: finalLevel,
-          }).toString(),
-        });
-      } catch (err) {
-        console.error('Erreur d\'envoi de la notification', err);
-      }
-
       sessionStorage.removeItem('ecole-arabe-student');
 
       app.innerHTML = `
