@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test de niveau — École Arabe de la Mosquée</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1>École Arabe de la Mosquée</h1>
+    <p class="arabic" id="student-name-ar">اختبار تحديد المستوى</p>
+  </div>
+
+  <div class="page">
+    <div id="app"></div>
+  </div>
+
+  <script type="module">
+    import { LEVELS, LEVEL_ORDER, LEVEL_LABELS, PASS_THRESHOLD } from './questions.js';
+
+    const studentRaw = sessionStorage.getItem('ecole-arabe-student');
+    if (!studentRaw) {
+      window.location.href = 'index.html';
+    }
+    const student = JSON.parse(studentRaw);
+
+    const app = document.getElementById('app');
+
+    const state = {
+      levelIndex: 0,
+      questionIndex: 0,
+      selected: null,
+      currentScore: 0,
+      levelScores: {}, // { debutant: { score, total, passed } }
+    };
+
+    function currentLevelKey() {
+      return LEVEL_ORDER[state.levelIndex];
+    }
+
+    function renderIntro() {
+      app.innerHTML = `
+        <div class="card">
+          <p class="level-badge">Prêt(e) ?</p>
+          <h2 style="margin-top:8px;">Bonjour ${escapeHtml(student.firstName)} !</h2>
+          <p class="muted">Le test commence par le niveau <strong>Débutant</strong>. Réponds à chaque question du mieux que tu peux.
+          Si tu réussis un niveau, tu passeras automatiquement au suivant.</p>
+          <button class="btn btn-primary" id="begin-btn">Commencer</button>
+        </div>
+      `;
+      document.getElementById('begin-btn').addEventListener('click', () => {
+        state.levelIndex = 0;
+        startLevel();
+      });
+    }
+
+    function startLevel() {
+      state.questionIndex = 0;
+      state.currentScore = 0;
+      state.selected = null;
+      renderQuestion();
+    }
+
+    function renderQuestion() {
+      const levelKey = currentLevelKey();
+      const level = LEVELS[levelKey];
+      const q = level.questions[state.questionIndex];
+      const total = level.questions.length;
+      const progressPct = Math.round((state.questionIndex / total) * 100);
+
+      app.innerHTML = `
+        <div class="progress-wrap">
+          <div class="progress-labels">
+            <span>${level.label}</span>
+            <span>Question ${state.questionIndex + 1} / ${total}</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" style="width:${progressPct}%"></div></div>
+        </div>
+        <div class="card">
+          <div class="question-number">${level.description}</div>
+          <div class="question-prompt">${escapeHtml(q.prompt)}</div>
+          ${q.arabic ? `<div class="question-arabic arabic">${q.arabic}</div>` : ''}
+          <div class="options" id="options"></div>
+          <div class="error" id="q-error"></div>
+          <button class="btn btn-primary" id="next-btn" disabled>Suivant</button>
+        </div>
+      `;
+
+      const optionsEl = document.getElementById('options');
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'option' + (isArabicText(opt) ? ' arabic-option' : '');
+        btn.textContent = opt;
+        btn.addEventListener('click', () => {
+          state.selected = i;
+          [...optionsEl.children].forEach((c) => c.classList.remove('selected'));
+          btn.classList.add('selected');
+          document.getElementById('next-btn').disabled = false;
+        });
+        optionsEl.appendChild(btn);
+      });
+
+      document.getElementById('next-btn').addEventListener('click', () => {
+        if (state.selected === null) return;
+        if (state.selected === q.correct) {
+          state.currentScore += 1;
+        }
+        state.selected = null;
+        state.questionIndex += 1;
+        if (state.questionIndex < total) {
+          renderQuestion();
+        } else {
+          finishLevel();
+        }
+      });
+    }
+
+    function finishLevel() {
+      const levelKey = currentLevelKey();
+      const level = LEVELS[levelKey];
+      const total = level.questions.length;
+      const score = state.currentScore;
+      const ratio = score / total;
+      const passed = ratio >= PASS_THRESHOLD;
+
+      state.levelScores[levelKey] = { score, total, passed };
+
+      const isLastLevel = state.levelIndex === LEVEL_ORDER.length - 1;
+
+      if (passed && !isLastLevel) {
+        renderLevelTransition(level.label, () => {
+          state.levelIndex += 1;
+          startLevel();
+        });
+      } else {
+        let finalLevelKey;
+        if (passed && isLastLevel) {
+          finalLevelKey = 'niveau4';
+        } else {
+          finalLevelKey = levelKey;
+        }
+        submitAndShowResult(finalLevelKey);
+      }
+    }
+
+    function renderLevelTransition(passedLevelLabel, onContinue) {
+      app.innerHTML = `
+        <div class="card" style="text-align:center;">
+          <div class="level-badge">Bravo !</div>
+          <h2>Tu as réussi le niveau ${escapeHtml(passedLevelLabel)}</h2>
+          <p class="muted">On continue avec le niveau suivant.</p>
+          <button class="btn btn-primary" id="continue-btn">Continuer</button>
+        </div>
+      `;
+      document.getElementById('continue-btn').addEventListener('click', onContinue);
+    }
+
+    async function submitAndShowResult(finalLevelKey) {
+      const finalLevel = LEVEL_LABELS[finalLevelKey];
+
+      app.innerHTML = `
+        <div class="card" style="text-align:center;">
+          <p class="muted">Calcul de ton résultat...</p>
+        </div>
+      `;
+
+      try {
+        await fetch('/api/submit-result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: student.firstName,
+            lastName: student.lastName,
+            age: student.age,
+            finalLevel,
+            levelScores: state.levelScores,
+          }),
+        });
+      } catch (err) {
+        // On affiche quand même le résultat à l'élève même si la sauvegarde échoue.
+        console.error('Erreur de sauvegarde du résultat', err);
+      }
+
+      sessionStorage.removeItem('ecole-arabe-student');
+
+      app.innerHTML = `
+        <div class="card result-hero">
+          <p class="muted">Ton niveau est</p>
+          <div class="level-name">${escapeHtml(finalLevel)}</div>
+          <p class="muted" style="margin-top:18px;">
+            Merci ${escapeHtml(student.firstName)} ! Ton résultat a été transmis à la direction de l'école.
+          </p>
+          <a class="btn btn-secondary" href="index.html" style="display:inline-block; margin-top:16px; text-decoration:none;">Retour à l'accueil</a>
+        </div>
+      `;
+    }
+
+    function isArabicText(str) {
+      return /[؀-ۿ]/.test(str);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    renderIntro();
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>École Arabe de la Mosquée — Test de niveau</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1>École Arabe de la Mosquée</h1>
+    <p class="arabic">مدرسة اللغة العربية بالمسجد — اختبار تحديد المستوى</p>
+  </div>
+
+  <div class="page">
+    <div class="card">
+      <h2 style="margin-top:0;">Test de niveau</h2>
+      <p class="muted">
+        Bienvenue ! Ce test va déterminer ton niveau en arabe : Débutant, Niveau 1, Niveau 2, Niveau 3 ou Niveau 4.
+        Réponds du mieux que tu peux, sans regarder d'aide.
+      </p>
+
+      <form id="start-form" novalidate>
+        <label for="firstName">Prénom *</label>
+        <input type="text" id="firstName" name="firstName" autocomplete="given-name" required />
+
+        <label for="lastName">Nom *</label>
+        <input type="text" id="lastName" name="lastName" autocomplete="family-name" required />
+
+        <label for="age">Âge *</label>
+        <input type="number" id="age" name="age" min="3" max="25" required />
+
+        <div class="error" id="form-error"></div>
+
+        <button type="submit" class="btn btn-primary">Commencer le test</button>
+      </form>
+    </div>
+
+    <p class="footer-note">
+      Espace direction : <a class="link" href="admin.html" style="text-decoration:underline;">accès administrateur</a>
+    </p>
+  </div>
+
+  <script>
+    const form = document.getElementById('start-form');
+    const errorEl = document.getElementById('form-error');
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+
+      const firstName = document.getElementById('firstName').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const age = document.getElementById('age').value;
+
+      if (!firstName || !lastName || !age) {
+        errorEl.textContent = 'Merci de remplir le prénom, le nom et l\'âge (obligatoires).';
+        return;
+      }
+      const ageNum = Number(age);
+      if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 25) {
+        errorEl.textContent = 'Merci d\'indiquer un âge valide (entre 3 et 25 ans).';
+        return;
+      }
+
+      sessionStorage.setItem(
+        'ecole-arabe-student',
+        JSON.stringify({ firstName, lastName, age: ageNum })
+      );
+      window.location.href = 'test.html';
+    });
+  </script>
+</body>
+</html>

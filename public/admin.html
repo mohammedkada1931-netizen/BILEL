@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration — École Arabe de la Mosquée</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1>Espace direction</h1>
+    <p class="arabic">لوحة تحكم المدير</p>
+  </div>
+
+  <div class="page">
+    <div id="app"></div>
+  </div>
+
+  <script type="module">
+    const TOKEN_KEY = 'ecole-arabe-admin-token';
+    const app = document.getElementById('app');
+
+    let allResults = [];
+    let filterLevel = '';
+    let searchQuery = '';
+    let sortDesc = true;
+
+    function getToken() {
+      return sessionStorage.getItem(TOKEN_KEY);
+    }
+
+    function renderLogin(errorMsg) {
+      app.innerHTML = `
+        <div class="card">
+          <h2 style="margin-top:0;">Connexion</h2>
+          <p class="muted">Entrez le mot de passe administrateur pour accéder aux résultats des élèves.</p>
+          <form id="login-form">
+            <label for="password">Mot de passe</label>
+            <input type="password" id="password" required />
+            <div class="error">${errorMsg ? escapeHtml(errorMsg) : ''}</div>
+            <button type="submit" class="btn btn-primary">Se connecter</button>
+          </form>
+        </div>
+      `;
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const password = document.getElementById('password').value;
+        try {
+          const res = await fetch('/api/admin-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            renderLogin(data.error || 'Erreur de connexion');
+            return;
+          }
+          sessionStorage.setItem(TOKEN_KEY, data.token);
+          loadDashboard();
+        } catch (err) {
+          renderLogin('Erreur réseau, réessayez.');
+        }
+      });
+    }
+
+    async function loadDashboard() {
+      app.innerHTML = `<div class="card"><p class="muted">Chargement...</p></div>`;
+      const token = getToken();
+      try {
+        const res = await fetch('/api/admin-list', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401) {
+          sessionStorage.removeItem(TOKEN_KEY);
+          renderLogin('Session expirée, reconnectez-vous.');
+          return;
+        }
+        const data = await res.json();
+        allResults = data.results || [];
+        renderDashboard();
+      } catch (err) {
+        app.innerHTML = `<div class="card"><p class="error">Erreur de chargement des résultats.</p></div>`;
+      }
+    }
+
+    function renderDashboard() {
+      const levels = [...new Set(allResults.map((r) => r.finalLevel))];
+      const counts = allResults.reduce((acc, r) => {
+        acc[r.finalLevel] = (acc[r.finalLevel] || 0) + 1;
+        return acc;
+      }, {});
+
+      let filtered = allResults.filter((r) => {
+        if (filterLevel && r.finalLevel !== filterLevel) return false;
+        if (searchQuery) {
+          const full = `${r.firstName} ${r.lastName}`.toLowerCase();
+          if (!full.includes(searchQuery.toLowerCase())) return false;
+        }
+        return true;
+      });
+      filtered.sort((a, b) => (sortDesc ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date)));
+
+      app.innerHTML = `
+        <div class="stat-cards">
+          <div class="stat-card"><div class="num">${allResults.length}</div><div class="lbl">Élèves testés</div></div>
+          ${['Débutant', 'Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4']
+            .map((lvl) => `<div class="stat-card"><div class="num">${counts[lvl] || 0}</div><div class="lbl">${lvl}</div></div>`)
+            .join('')}
+        </div>
+
+        <div class="card">
+          <div class="toolbar">
+            <input type="text" id="search" placeholder="Rechercher un élève..." value="${escapeHtml(searchQuery)}" />
+            <select id="level-filter">
+              <option value="">Tous les niveaux</option>
+              ${levels.map((l) => `<option value="${escapeHtml(l)}" ${l === filterLevel ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
+            </select>
+            <button class="btn btn-secondary" id="sort-btn">Trier : ${sortDesc ? 'Plus récent' : 'Plus ancien'}</button>
+            <button class="btn btn-secondary" id="export-btn">Exporter CSV</button>
+            <button class="btn btn-secondary" id="logout-btn">Déconnexion</button>
+          </div>
+
+          ${filtered.length === 0 ? '<p class="muted">Aucun résultat.</p>' : renderTable(filtered)}
+        </div>
+      `;
+
+      document.getElementById('search').addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderDashboard();
+      });
+      document.getElementById('level-filter').addEventListener('change', (e) => {
+        filterLevel = e.target.value;
+        renderDashboard();
+      });
+      document.getElementById('sort-btn').addEventListener('click', () => {
+        sortDesc = !sortDesc;
+        renderDashboard();
+      });
+      document.getElementById('export-btn').addEventListener('click', () => exportCsv(filtered));
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        sessionStorage.removeItem(TOKEN_KEY);
+        renderLogin();
+      });
+
+      document.querySelectorAll('[data-delete-id]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Supprimer ce résultat ?')) return;
+          const id = btn.getAttribute('data-delete-id');
+          const token = getToken();
+          await fetch('/api/admin-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ id }),
+          });
+          loadDashboard();
+        });
+      });
+    }
+
+    function renderTable(rows) {
+      return `
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Prénom</th>
+              <th>Âge</th>
+              <th>Niveau</th>
+              <th>Détail</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map(
+                (r) => `
+              <tr>
+                <td>${escapeHtml(r.lastName)}</td>
+                <td>${escapeHtml(r.firstName)}</td>
+                <td>${r.age}</td>
+                <td><span class="pill">${escapeHtml(r.finalLevel)}</span></td>
+                <td class="muted">${formatScores(r.levelScores)}</td>
+                <td class="muted">${new Date(r.date).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                <td><button class="icon-btn" data-delete-id="${r.id}">Supprimer</button></td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function formatScores(levelScores) {
+      if (!levelScores) return '';
+      return Object.entries(levelScores)
+        .map(([lvl, s]) => `${lvl}: ${s.score}/${s.total}${s.passed ? '✓' : '✗'}`)
+        .join(' · ');
+    }
+
+    function exportCsv(rows) {
+      const header = ['Nom', 'Prénom', 'Âge', 'Niveau', 'Date', 'Détail'];
+      const lines = [header.join(';')];
+      rows.forEach((r) => {
+        lines.push(
+          [r.lastName, r.firstName, r.age, r.finalLevel, new Date(r.date).toLocaleDateString('fr-FR'), formatScores(r.levelScores)]
+            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+            .join(';')
+        );
+      });
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `resultats-ecole-arabe-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str ?? '';
+      return div.innerHTML;
+    }
+
+    if (getToken()) {
+      loadDashboard();
+    } else {
+      renderLogin();
+    }
+  </script>
+</body>
+</html>
