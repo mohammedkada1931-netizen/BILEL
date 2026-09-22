@@ -166,8 +166,10 @@
         </div>
       `;
 
+      let saveOk = false;
+      let saveErrorDetail = '';
       try {
-        await fetch('/api/submit-result', {
+        const res = await fetch('/api/submit-result', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -178,8 +180,14 @@
             levelScores: state.levelScores,
           }),
         });
+        saveOk = res.ok;
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          saveErrorDetail = data.detail || data.error || `HTTP ${res.status}`;
+          console.error('Erreur de sauvegarde du résultat', saveErrorDetail);
+        }
       } catch (err) {
-        // On affiche quand même le résultat à l'élève même si la sauvegarde échoue.
+        saveErrorDetail = err.message || String(err);
         console.error('Erreur de sauvegarde du résultat', err);
       }
 
@@ -189,9 +197,11 @@
         <div class="card result-hero">
           <p class="muted">Ton niveau est</p>
           <div class="level-name">${escapeHtml(finalLevel)}</div>
-          <p class="muted" style="margin-top:18px;">
-            Merci ${escapeHtml(student.firstName)} ! Ton résultat a été transmis à la direction de l'école.
-          </p>
+          ${
+            saveOk
+              ? `<p class="muted" style="margin-top:18px;">Merci ${escapeHtml(student.firstName)} ! Ton résultat a été transmis à la direction de l'école.</p>`
+              : `<p class="error" style="margin-top:18px;">⚠️ Le résultat n'a pas pu être sauvegardé (erreur technique). Merci de le signaler à la direction.<br><span class="muted" style="font-size:0.78rem;">${escapeHtml(saveErrorDetail)}</span></p>`
+          }
           <a class="btn btn-secondary" href="index.html" style="display:inline-block; margin-top:16px; text-decoration:none;">Retour à l'accueil</a>
         </div>
       `;

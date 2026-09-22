@@ -28,25 +28,33 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Niveau invalide' }) };
   }
 
-  const store = getStore('results');
-  const existing = (await store.get('all-results', { type: 'json' })) || [];
+  try {
+    const store = getStore('results');
+    const existing = (await store.get('all-results', { type: 'json' })) || [];
 
-  const record = {
-    id: crypto.randomUUID(),
-    firstName: firstName.trim().slice(0, 100),
-    lastName: lastName.trim().slice(0, 100),
-    age: ageNum,
-    finalLevel,
-    levelScores: levelScores && typeof levelScores === 'object' ? levelScores : {},
-    date: new Date().toISOString(),
-  };
+    const record = {
+      id: crypto.randomUUID(),
+      firstName: firstName.trim().slice(0, 100),
+      lastName: lastName.trim().slice(0, 100),
+      age: ageNum,
+      finalLevel,
+      levelScores: levelScores && typeof levelScores === 'object' ? levelScores : {},
+      date: new Date().toISOString(),
+    };
 
-  existing.push(record);
-  await store.setJSON('all-results', existing);
+    existing.push(record);
+    await store.setJSON('all-results', existing);
 
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, finalLevel }),
-  };
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ok: true, finalLevel }),
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Erreur de sauvegarde', detail: String(err && err.message || err) }),
+    };
+  }
 };
