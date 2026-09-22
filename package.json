@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Plateforme de test de niveau pour l'école arabe de la mosquée",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@netlify/blobs": "^8.1.0"
   }

@@ -1,31 +1,35 @@
-const { getStore } = require('@netlify/blobs');
-const crypto = require('crypto');
+import { getStore } from '@netlify/blobs';
+import crypto from 'node:crypto';
 
 const VALID_LEVELS = ['Débutant', 'Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+function json(body, status) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+export default async (req) => {
+  if (req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
 
   let data;
   try {
-    data = JSON.parse(event.body || '{}');
+    data = await req.json();
   } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Requête invalide' }) };
+    return json({ error: 'Requête invalide' }, 400);
   }
 
   const { firstName, lastName, age, finalLevel, levelScores } = data;
 
   if (!firstName || !firstName.trim() || !lastName || !lastName.trim()) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Nom et prénom requis' }) };
+    return json({ error: 'Nom et prénom requis' }, 400);
   }
   const ageNum = Number(age);
   if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 25) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Âge invalide' }) };
+    return json({ error: 'Âge invalide' }, 400);
   }
   if (!VALID_LEVELS.includes(finalLevel)) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Niveau invalide' }) };
+    return json({ error: 'Niveau invalide' }, 400);
   }
 
   try {
@@ -45,16 +49,8 @@ exports.handler = async (event) => {
     existing.push(record);
     await store.setJSON('all-results', existing);
 
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ok: true, finalLevel }),
-    };
+    return json({ ok: true, finalLevel }, 200);
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Erreur de sauvegarde', detail: String(err && err.message || err) }),
-    };
+    return json({ error: 'Erreur de sauvegarde', detail: String((err && err.message) || err) }, 500);
   }
 };

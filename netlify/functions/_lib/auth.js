@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'node:crypto';
 
 const SECRET = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || 'change-me-secret';
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12h
@@ -24,15 +24,13 @@ function verify(token) {
   return payload;
 }
 
-function makeToken() {
+export function makeToken() {
   return sign({ role: 'admin', exp: Date.now() + TOKEN_TTL_MS });
 }
 
-function requireAdmin(event) {
-  const authHeader = event.headers.authorization || event.headers.Authorization || '';
+export function requireAdmin(req) {
+  const authHeader = req.headers.get('authorization') || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const payload = verify(token);
   return payload && payload.role === 'admin';
 }
-
-module.exports = { makeToken, requireAdmin };

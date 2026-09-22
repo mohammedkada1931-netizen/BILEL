@@ -1,32 +1,29 @@
-const { makeToken } = require('./_lib/auth');
+import { makeToken } from './_lib/auth.js';
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+function json(body, status) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+export default async (req) => {
+  if (req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
 
   let password;
   try {
-    ({ password } = JSON.parse(event.body || '{}'));
+    ({ password } = await req.json());
   } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Requête invalide' }) };
+    return json({ error: 'Requête invalide' }, 400);
   }
 
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Le mot de passe admin n'est pas configuré côté serveur (ADMIN_PASSWORD)." }),
-    };
+    return json({ error: "Le mot de passe admin n'est pas configuré côté serveur (ADMIN_PASSWORD)." }, 500);
   }
 
   if (!password || password !== expected) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Mot de passe incorrect' }) };
+    return json({ error: 'Mot de passe incorrect' }, 401);
   }
 
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: makeToken() }),
-  };
+  return json({ token: makeToken() }, 200);
 };

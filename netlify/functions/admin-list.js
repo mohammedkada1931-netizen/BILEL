@@ -1,12 +1,16 @@
-const { getStore } = require('@netlify/blobs');
-const { requireAdmin } = require('./_lib/auth');
+import { getStore } from '@netlify/blobs';
+import { requireAdmin } from './_lib/auth.js';
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'GET') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+function json(body, status) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+export default async (req) => {
+  if (req.method !== 'GET') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
-  if (!requireAdmin(event)) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Non autorisé' }) };
+  if (!requireAdmin(req)) {
+    return json({ error: 'Non autorisé' }, 401);
   }
 
   try {
@@ -14,16 +18,8 @@ exports.handler = async (event) => {
     const results = (await store.get('all-results', { type: 'json' })) || [];
     results.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ results }),
-    };
+    return json({ results }, 200);
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Erreur de lecture', detail: String(err && err.message || err) }),
-    };
+    return json({ error: 'Erreur de lecture', detail: String((err && err.message) || err) }, 500);
   }
 };
