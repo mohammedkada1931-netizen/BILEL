@@ -14,7 +14,9 @@ export default async (req) => {
   }
 
   try {
-    const store = getStore('results');
+    // Cohérence forte : sans ça, la liste peut mettre jusqu'à 60s à refléter
+    // un résultat qui vient d'être enregistré.
+    const store = getStore({ name: 'results', consistency: 'strong' });
     const { blobs } = await store.list();
 
     const results = (

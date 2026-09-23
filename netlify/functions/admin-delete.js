@@ -24,7 +24,7 @@ export default async (req) => {
   }
 
   try {
-    const store = getStore('results');
+    const store = getStore({ name: 'results', consistency: 'strong' });
     await store.delete(id);
 
     return json({ ok: true }, 200);
