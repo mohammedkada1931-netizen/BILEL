@@ -29,7 +29,7 @@ body {
 }
 
 body.mosque-bg {
-  background-image: linear-gradient(rgba(246, 244, 236, 0.93), rgba(246, 244, 236, 0.93)), url('assets/mosquee.png');
+  background-image: linear-gradient(rgba(246, 244, 236, 0.18), rgba(246, 244, 236, 0.18)), url('assets/mosquee.png');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
