@@ -25,11 +25,9 @@ export default async (req) => {
 
   try {
     const store = getStore('results');
-    const existing = (await store.get('all-results', { type: 'json' })) || [];
-    const filtered = existing.filter((r) => r.id !== id);
-    await store.setJSON('all-results', filtered);
+    await store.delete(id);
 
-    return json({ ok: true, removed: existing.length !== filtered.length }, 200);
+    return json({ ok: true }, 200);
   } catch (err) {
     return json({ error: 'Erreur de suppression', detail: String((err && err.message) || err) }, 500);
   }

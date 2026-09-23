@@ -1,14 +1,10 @@
 import { getStore } from '@netlify/blobs';
-import crypto from 'node:crypto';
+import { studentKey } from './_lib/students.js';
 
 const VALID_LEVELS = ['Débutant', 'Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
 
 function json(body, status) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
-
-function normalize(s) {
-  return (s || '').trim().toLowerCase();
 }
 
 export default async (req) => {
@@ -37,13 +33,13 @@ export default async (req) => {
   }
 
   try {
-    const store = getStore('results');
-    const existing = (await store.get('all-results', { type: 'json' })) || [];
+    // Stockage strongly-consistent : évite toute ambiguïté quand des centaines d'élèves
+    // écrivent en même temps.
+    const store = getStore({ name: 'results', consistency: 'strong' });
+    const key = studentKey(firstName, lastName);
 
-    const dup = existing.find(
-      (r) => normalize(r.firstName) === normalize(firstName) && normalize(r.lastName) === normalize(lastName)
-    );
-    if (dup) {
+    const existing = await store.get(key, { type: 'json' });
+    if (existing) {
       return json(
         { error: 'Un résultat existe déjà pour ce nom. Chaque élève ne peut passer le test qu\'une seule fois.' },
         409
@@ -51,7 +47,6 @@ export default async (req) => {
     }
 
     const record = {
-      id: crypto.randomUUID(),
       firstName: firstName.trim().slice(0, 100),
       lastName: lastName.trim().slice(0, 100),
       age: ageNum,
@@ -60,8 +55,9 @@ export default async (req) => {
       date: new Date().toISOString(),
     };
 
-    existing.push(record);
-    await store.setJSON('all-results', existing);
+    // Chaque élève écrit uniquement dans SA propre clé : aucune écriture concurrente
+    // de deux élèves différents ne peut jamais entrer en conflit ni s'écraser.
+    await store.setJSON(key, record);
 
     return json({ ok: true, finalLevel }, 200);
   } catch (err) {

@@ -1,11 +1,8 @@
 import { getStore } from '@netlify/blobs';
+import { studentKey } from './_lib/students.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
-
-function normalize(s) {
-  return (s || '').trim().toLowerCase();
 }
 
 export default async (req) => {
@@ -22,11 +19,9 @@ export default async (req) => {
   }
 
   try {
-    const store = getStore('results');
-    const existing = (await store.get('all-results', { type: 'json' })) || [];
-    const match = existing.find(
-      (r) => normalize(r.firstName) === normalize(firstName) && normalize(r.lastName) === normalize(lastName)
-    );
+    const store = getStore({ name: 'results', consistency: 'strong' });
+    const key = studentKey(firstName, lastName);
+    const match = await store.get(key, { type: 'json' });
 
     return json({ exists: !!match, finalLevel: match ? match.finalLevel : null }, 200);
   } catch (err) {

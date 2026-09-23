@@ -41,7 +41,23 @@
 
     function renderIntro() {
       app.innerHTML = `
-        <div class="card">
+        <div class="islamic-section">
+          <div class="islamic-overlay">
+            <p class="arabic islamic-bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
+            <p class="islamic-fr">Au nom d'Allah, le Tout Miséricordieux, le Très Miséricordieux.</p>
+
+            <h3 class="islamic-title arabic">حَدِيثٌ عَنِ النَّبِيِّ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّم</h3>
+            <p class="arabic islamic-text">«مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ طَرِيقًا إِلَى الْجَنَّةِ»</p>
+            <p class="islamic-fr">« Celui qui emprunte un chemin à la recherche d'un savoir, Allah lui facilite par cela un chemin vers le Paradis. »</p>
+            <p class="islamic-ref">رواه أبو داود والترمذي وابن ماجه ومسلم — Rapporté par Abou Dâoud, At-Tirmidhî, Ibn Mâjah et Mouslim</p>
+
+            <p class="arabic islamic-text">«اللَّهُمَّ انْفَعْنِي بِمَا عَلَّمْتَنِي، وَعَلِّمْنِي مَا يَنْفَعُنِي، وَزِدْنِي عِلْمًا»</p>
+            <p class="islamic-fr">« Ô Allah, fais-moi profiter de ce que Tu m'as enseigné, enseigne-moi ce qui m'est utile, et augmente mon savoir. »</p>
+            <p class="islamic-ref">رواه ابن ماجه وصححه الألباني — Rapporté par Ibn Mâjah, authentifié par Al-Albani</p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:24px;">
           <p class="level-badge">Prêt(e) ?</p>
           <h2 style="margin-top:8px;">Bonjour ${escapeHtml(student.firstName)} !</h2>
           <p class="muted">Le test commence par le niveau <strong>Débutant</strong>. Réponds à chaque question du mieux que tu peux.

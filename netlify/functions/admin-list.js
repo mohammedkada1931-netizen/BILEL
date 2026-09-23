@@ -15,7 +15,17 @@ export default async (req) => {
 
   try {
     const store = getStore('results');
-    const results = (await store.get('all-results', { type: 'json' })) || [];
+    const { blobs } = await store.list();
+
+    const results = (
+      await Promise.all(
+        blobs.map(async (b) => {
+          const data = await store.get(b.key, { type: 'json' });
+          return data ? { ...data, id: b.key } : null;
+        })
+      )
+    ).filter(Boolean);
+
     results.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return json({ results }, 200);
