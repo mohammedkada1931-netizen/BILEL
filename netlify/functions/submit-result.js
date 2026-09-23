@@ -7,6 +7,10 @@ function json(body, status) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
+function normalize(s) {
+  return (s || '').trim().toLowerCase();
+}
+
 export default async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
@@ -35,6 +39,16 @@ export default async (req) => {
   try {
     const store = getStore('results');
     const existing = (await store.get('all-results', { type: 'json' })) || [];
+
+    const dup = existing.find(
+      (r) => normalize(r.firstName) === normalize(firstName) && normalize(r.lastName) === normalize(lastName)
+    );
+    if (dup) {
+      return json(
+        { error: 'Un résultat existe déjà pour ce nom. Chaque élève ne peut passer le test qu\'une seule fois.' },
+        409
+      );
+    }
 
     const record = {
       id: crypto.randomUUID(),

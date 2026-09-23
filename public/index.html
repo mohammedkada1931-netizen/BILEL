@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>École Arabe de la Mosquée — Test de niveau</title>
+  <title>École Arabe de la Mosquée Fath Brive — Test de niveau</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="topbar">
-    <h1>École Arabe de la Mosquée</h1>
+    <h1>École Arabe de la Mosquée Fath Brive</h1>
     <p class="arabic">مَدْرَسَةُ اللُّغَةِ الْعَرَبِيَّةِ بِالْمَسْجِدِ — اِخْتِبَارُ تَحْدِيدِ الْمُسْتَوَى</p>
   </div>
 
@@ -19,6 +19,7 @@
         Bienvenue ! Ce test va déterminer ton niveau en arabe : Débutant, Niveau 1, Niveau 2, Niveau 3 ou Niveau 4.
         Réponds du mieux que tu peux, sans regarder d'aide.
       </p>
+      <p class="muted">Attention : chaque élève ne peut passer ce test qu'une seule fois.</p>
 
       <form id="start-form" novalidate>
         <label for="firstName">Prénom *</label>
@@ -32,20 +33,52 @@
 
         <div class="error" id="form-error"></div>
 
-        <button type="submit" class="btn btn-primary">Commencer le test</button>
+        <button type="submit" class="btn btn-primary" id="start-btn">Commencer le test</button>
       </form>
     </div>
 
     <p class="footer-note">
       Espace direction : <a class="link" href="admin.html" style="text-decoration:underline;">accès administrateur</a>
     </p>
+
+    <div class="islamic-section">
+      <div class="islamic-overlay">
+        <p class="arabic islamic-bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
+        <p class="islamic-fr">Au nom d'Allah, le Tout Miséricordieux, le Très Miséricordieux.</p>
+
+        <h3 class="islamic-title arabic">الصَّلَاةُ الْإِبْرَاهِيمِيَّة</h3>
+        <p class="arabic islamic-text">
+          اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَى إِبْرَاهِيمَ وَعَلَى آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ،
+          اللَّهُمَّ بَارِكْ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلَى إِبْرَاهِيمَ وَعَلَى آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ
+        </p>
+        <p class="islamic-fr">
+          Ô Allah, prie sur Muhammad et sur la famille de Muhammad, comme Tu as prié sur Ibrahim et sur la famille
+          d'Ibrahim ; Tu es certes digne de louange et de gloire. Ô Allah, bénis Muhammad et la famille de Muhammad,
+          comme Tu as béni Ibrahim et la famille d'Ibrahim ; Tu es certes digne de louange et de gloire.
+        </p>
+
+        <h3 class="islamic-title arabic">حَدِيثٌ عَنِ النَّبِيِّ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّم</h3>
+        <p class="arabic islamic-text">«مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ طَرِيقًا إِلَى الْجَنَّةِ»</p>
+        <p class="islamic-fr">« Celui qui emprunte un chemin à la recherche d'un savoir, Allah lui facilite par cela un chemin vers le Paradis. »</p>
+        <p class="islamic-ref">رواه أبو داود والترمذي وابن ماجه ومسلم — Rapporté par Abou Dâoud, At-Tirmidhî, Ibn Mâjah et Mouslim</p>
+
+        <p class="arabic islamic-text">«اللَّهُمَّ انْفَعْنِي بِمَا عَلَّمْتَنِي، وَعَلِّمْنِي مَا يَنْفَعُنِي، وَزِدْنِي عِلْمًا»</p>
+        <p class="islamic-fr">« Ô Allah, fais-moi profiter de ce que Tu m'as enseigné, enseigne-moi ce qui m'est utile, et augmente mon savoir. »</p>
+        <p class="islamic-ref">رواه ابن ماجه وصححه الألباني — Rapporté par Ibn Mâjah, authentifié par Al-Albani</p>
+
+        <h3 class="islamic-title arabic">أَعْظَمُ دُعَاءٍ لِطَلَبِ الْعِلْم</h3>
+        <p class="arabic islamic-text">﴿وَقُل رَّبِّ زِدْنِي عِلْمًا﴾ [طه: 114]</p>
+        <p class="islamic-fr">« Et dis : Ô mon Seigneur, accroît mes connaissances ! » (Sourate Ta-Ha, verset 114)</p>
+      </div>
+    </div>
   </div>
 
   <script>
     const form = document.getElementById('start-form');
     const errorEl = document.getElementById('form-error');
+    const startBtn = document.getElementById('start-btn');
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       errorEl.textContent = '';
 
@@ -61,6 +94,26 @@
       if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 25) {
         errorEl.textContent = 'Merci d\'indiquer un âge valide (entre 3 et 25 ans).';
         return;
+      }
+
+      startBtn.disabled = true;
+      startBtn.textContent = 'Vérification...';
+
+      try {
+        const res = await fetch(
+          `/api/check-student?firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}`
+        );
+        const data = await res.json();
+        if (res.ok && data.exists) {
+          errorEl.textContent = `Tu as déjà passé ce test (niveau obtenu : ${data.finalLevel}). Chaque élève ne peut le passer qu'une seule fois. Contacte la direction en cas d'erreur.`;
+          startBtn.disabled = false;
+          startBtn.textContent = 'Commencer le test';
+          return;
+        }
+      } catch (err) {
+        // En cas d'erreur réseau sur la vérification, on laisse continuer :
+        // la protection sera de toute façon appliquée côté serveur à l'envoi du résultat.
+        console.error('Erreur de vérification', err);
       }
 
       sessionStorage.setItem(

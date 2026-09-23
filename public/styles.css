@@ -355,3 +355,59 @@ tr:hover td {
   font-size: 0.85rem;
   text-decoration: underline;
 }
+
+.islamic-section {
+  margin-top: 24px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-image: url('assets/kaaba.png');
+  background-size: cover;
+  background-position: center;
+  box-shadow: var(--shadow);
+}
+
+.islamic-overlay {
+  background: linear-gradient(180deg, rgba(11, 61, 46, 0.88), rgba(11, 61, 46, 0.94));
+  padding: 32px 24px;
+  color: #f5f2e6;
+  text-align: center;
+}
+
+.islamic-bismillah {
+  font-size: 1.6rem;
+  margin: 0 0 6px;
+  color: var(--gold-400);
+}
+
+.islamic-title {
+  font-size: 1.2rem;
+  color: var(--gold-400);
+  margin: 26px 0 10px;
+}
+
+.islamic-title:first-of-type {
+  margin-top: 18px;
+}
+
+.islamic-text {
+  font-size: 1.25rem;
+  line-height: 2;
+  margin: 0 0 8px;
+}
+
+.islamic-fr {
+  font-size: 0.92rem;
+  color: #e5e0cf;
+  font-style: italic;
+  max-width: 560px;
+  margin: 0 auto 16px;
+  line-height: 1.5;
+}
+
+.islamic-ref {
+  font-size: 0.76rem;
+  color: var(--gold-400);
+  opacity: 0.85;
+  margin: -8px auto 20px;
+  max-width: 560px;
+}
