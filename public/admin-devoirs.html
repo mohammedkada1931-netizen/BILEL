@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Devoirs (professeur) — École Arabe de la Mosquée Fath Brive</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1>Espace professeur — Devoirs</h1>
+    <p class="arabic">إِدَارَةُ الْوَاجِبَاتِ وَتَصْحِيحُهَا</p>
+    <div class="nav-links"><a href="admin.html">Tests de niveau</a><a href="admin-devoirs.html">Devoirs</a><a href="devoirs.html">Vue élève</a></div>
+  </div>
+  <div class="page wide"><div id="app"></div></div>
+
+  <script type="module">
+    const TOKEN_KEY = 'ecole-arabe-admin-token';
+    const app = document.getElementById('app');
+    const esc = (s) => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+    const isAr = (s) => /[؀-ۿ]/.test(s || '');
+    const token = () => sessionStorage.getItem(TOKEN_KEY);
+    const fmt = (n) => (Math.round(n * 100) / 100).toString().replace('.', ',');
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    const studentLink = (code) => `${location.origin}/devoirs.html?c=${code}`;
+    const STATUS = { draft: ['Brouillon', 'pill-grey'], open: ['Ouvert', 'pill-green'], closed: ['Fermé', 'pill-gold'] };
+
+    function toast(msg) {
+      const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+      document.body.appendChild(t); setTimeout(() => t.remove(), 2200);
+    }
+    async function api(url, body) {
+      const res = await fetch(url, {
+        method: body ? 'POST' : 'GET',
+        headers: { Authorization: `Bearer ${token()}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) { sessionStorage.removeItem(TOKEN_KEY); renderLogin('Session expirée, reconnectez-vous.'); throw new Error('401'); }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.detail || `Erreur ${res.status}`);
+      return data;
+    }
+    async function copy(text) {
+      try { await navigator.clipboard.writeText(text); toast('Copié !'); } catch { prompt('Copiez ce texte :', text); }
+    }
+
+    // ================= Connexion =================
+    function renderLogin(msg) {
+      app.innerHTML = `
+        <div class="card" style="max-width:480px; margin-inline:auto;">
+          <h2 style="margin-top:0;">Connexion</h2>
+          <form id="f"><label>Mot de passe administrateur</label><input type="password" id="pw" required />
+          <div class="error">${esc(msg || '')}</div><button class="btn btn-primary">Se connecter</button></form>
+        </div>`;
+      document.getElementById('f').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          const res = await fetch('/api/admin-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('pw').value }) });
+          const data = await res.json();
+          if (!res.ok) return renderLogin(data.error);
+          sessionStorage.setItem(TOKEN_KEY, data.token);
+          renderList();
+        } catch { renderLogin('Erreur réseau.'); }
+      });
+    }
+
+    // ================= Liste des devoirs =================
+    async function renderList() {
+      app.innerHTML = '<div class="card"><p class="muted">Chargement…</p></div>';
+      let list;
+      try { ({ assignments: list } = await api('/api/admin-assignments')); } catch (e) { if (e.message !== '401') app.innerHTML = `<div class="card"><p class="error">${esc(e.message)}</p></div>`; return; }
+      const totalPending = list.reduce((t, a) => t + a.pendingCount, 0);
+      app.innerHTML = `
+        <div class="stat-cards">
+          <div class="stat-card"><div class="num">${list.length}</div><div class="lbl">Devoirs</div></div>
+          <div class="stat-card"><div class="num">${list.filter((a) => a.status === 'open').length}</div><div class="lbl">Ouverts</div></div>
+          <div class="stat-card"><div class="num">${list.reduce((t, a) => t + a.submissionCount, 0)}</div><div class="lbl">Rendus</div></div>
+          <div class="stat-card"><div class="num">${totalPending}</div><div class="lbl">À corriger à la main</div></div>
+        </div>
+        <div class="card">
+          <div class="toolbar"><button class="btn btn-primary btn-inline" id="new" style="margin:0;">+ Nouveau devoir</button>
+          <button class="btn btn-secondary btn-inline" id="logout">Déconnexion</button></div>
+          ${list.length ? list.map((a) => `
+            <div class="hw-item">
+              <div>
+                <h3>${esc(a.title)} <span class="pill ${STATUS[a.status][1]}">${STATUS[a.status][0]}</span></h3>
+                <span class="muted">Code <strong>${esc(a.code)}</strong>${a.level ? ' · ' + esc(a.level) : ''} · ${a.questionCount} questions${a.dueDate ? ' · pour le ' + fmtDate(a.dueDate) : ''}</span><br>
+                <span class="muted">${a.submissionCount} rendu${a.submissionCount > 1 ? 's' : ''}${a.average !== null ? ' · moyenne ' + Math.round(a.average * 100) + ' %' : ''}${a.pendingCount ? ` · <strong style="color:#7a5d00;">${a.pendingCount} à corriger</strong>` : ''}</span>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary btn-inline" style="margin:0;" data-res="${a.code}">Résultats</button>
+                <button class="btn btn-secondary btn-inline" data-link="${a.code}">Copier le lien</button>
+                <button class="btn btn-secondary btn-inline" data-edit="${a.code}">Modifier</button>
+              </div>
+            </div>`).join('') : '<p class="muted" style="margin-top:20px;">Aucun devoir pour l\'instant. Cliquez sur « Nouveau devoir ».</p>'}
+        </div>`;
+      document.getElementById('new').addEventListener('click', () => renderEditor(null));
+      document.getElementById('logout').addEventListener('click', () => { sessionStorage.removeItem(TOKEN_KEY); renderLogin(); });
+      document.querySelectorAll('[data-res]').forEach((b) => b.addEventListener('click', () => renderResults(b.dataset.res)));
+      document.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => renderEditor(b.dataset.edit)));
+      document.querySelectorAll('[data-link]').forEach((b) => b.addEventListener('click', () => copy(studentLink(b.dataset.link))));
+    }
+
+    // ================= Éditeur =================
+    let draft = null;
+    const blankQ = (type = 'qcm') => ({
+      type, prompt: '', arabic: '', points: 1, explanation: '',
+      options: type === 'qcm' ? ['', '', '', ''] : undefined, correct: 0,
+      accepted: type === 'short' ? [''] : undefined, strict: false, modelAnswer: '',
+    });
+
+    async function renderEditor(code) {
+      if (code) {
+        try { draft = (await api(`/api/admin-assignments?code=${code}`)).assignment; } catch (e) { return toast(e.message); }
+      } else {
+        draft = { title: '', level: '', instructions: '', dueDate: '', status: 'open', showCorrection: true, shuffle: true, questions: [blankQ()] };
+      }
+      drawEditor();
+    }
+
+    function drawEditor() {
+      const d = draft;
+      app.innerHTML = `
+        <div class="card">
+          <div class="toolbar"><button class="btn btn-secondary btn-inline" id="back">← Retour</button>
+            <h2 style="margin:0;">${d.code ? 'Modifier le devoir' : 'Nouveau devoir'}</h2></div>
+          <div class="grid-2">
+            <div><label>Titre *</label><input type="text" id="title" value="${esc(d.title)}" placeholder="Ex : Leçon 5 — les couleurs" /></div>
+            <div><label>Niveau / classe</label><input type="text" id="level" value="${esc(d.level)}" placeholder="Ex : Niveau 1" /></div>
+            <div><label>À rendre pour le</label><input type="date" id="dueDate" value="${esc(d.dueDate)}" /></div>
+            <div><label>Statut</label><select id="status">
+              <option value="open" ${d.status === 'open' ? 'selected' : ''}>Ouvert (visible par les élèves)</option>
+              <option value="draft" ${d.status === 'draft' ? 'selected' : ''}>Brouillon (caché)</option>
+              <option value="closed" ${d.status === 'closed' ? 'selected' : ''}>Fermé (plus de rendus)</option></select></div>
+          </div>
+          <label>Consignes pour les élèves</label><textarea id="instructions" placeholder="Ex : Lis bien chaque question. Écris les réponses en arabe avec le clavier arabe.">${esc(d.instructions)}</textarea>
+          <label style="font-weight:500;"><input type="checkbox" id="showCorrection" ${d.showCorrection ? 'checked' : ''} /> Montrer la correction à l'élève après le rendu</label>
+          <label style="font-weight:500; margin-top:6px;"><input type="checkbox" id="shuffle" ${d.shuffle ? 'checked' : ''} /> Mélanger l'ordre des choix (limite la copie entre élèves)</label>
+        </div>
+
+        <div class="card">
+          <div class="toolbar"><h3 style="margin:0; flex:1;">Questions (${d.questions.length})</h3>
+            <button class="btn btn-secondary btn-inline" id="bulk">⚡ Import rapide (coller du texte)</button></div>
+          <div id="qs">${d.questions.map(editorQ).join('')}</div>
+          <div class="btn-row" style="margin-top:18px;">
+            <button class="btn btn-secondary btn-inline" data-add="qcm">+ Choix multiple (QCM)</button>
+            <button class="btn btn-secondary btn-inline" data-add="short">+ Réponse courte (corrigée auto)</button>
+            <button class="btn btn-secondary btn-inline" data-add="free">+ Réponse libre (corrigée à la main)</button>
+          </div>
+        </div>
+        <div class="card"><div class="error" id="err"></div>
+          <div class="btn-row"><button class="btn btn-primary btn-inline" id="save" style="margin:0;">💾 Enregistrer</button>
+          ${d.code ? '<button class="btn btn-danger-outline btn-inline" id="del">Supprimer le devoir</button>' : ''}</div></div>`;
+      bindEditor();
+    }
+
+    function editorQ(q, i) {
+      const typeLabel = { qcm: 'Choix multiple', short: 'Réponse courte', free: 'Réponse libre' }[q.type];
+      return `<div class="editor-q" data-i="${i}">
+        <div class="toolbar" style="margin-bottom:6px;"><strong style="flex:1;">${i + 1}. ${typeLabel}</strong>
+          <button class="icon-btn" data-up="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button class="icon-btn" data-down="${i}" ${i === draft.questions.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="icon-btn" data-dup="${i}">Dupliquer</button>
+          <button class="icon-btn" data-rm="${i}">Supprimer</button></div>
+        <label style="margin-top:4px;">Énoncé *</label><textarea data-f="prompt" style="min-height:60px;">${esc(q.prompt)}</textarea>
+        <div class="row">
+          <div><label>Texte arabe en grand (optionnel)</label><input type="text" class="arabic" data-f="arabic" value="${esc(q.arabic)}" /></div>
+          <div><label>Points</label><input type="number" data-f="points" min="0" max="100" step="0.25" value="${q.points}" /></div>
+        </div>
+        ${q.type === 'qcm' ? `
+          <label>Choix (cochez la bonne réponse)</label>
+          ${q.options.map((o, oi) => `<div class="opt-row"><input type="radio" name="c${i}" data-correct="${oi}" ${q.correct === oi ? 'checked' : ''} />
+            <input type="text" data-opt="${oi}" value="${esc(o)}" class="${isAr(o) ? 'arabic' : ''}" placeholder="Choix ${oi + 1}" />
+            ${q.options.length > 2 ? `<button class="icon-btn" data-rmopt="${oi}">✕</button>` : ''}</div>`).join('')}
+          ${q.options.length < 6 ? '<button class="icon-btn" data-addopt style="margin-top:8px;">+ Ajouter un choix</button>' : ''}` : ''}
+        ${q.type === 'short' ? `
+          <label>Réponses acceptées (une par ligne)</label>
+          <textarea data-f="accepted" style="min-height:60px;">${esc((q.accepted || []).join('\n'))}</textarea>
+          <label style="font-weight:500;"><input type="checkbox" data-f="strict" ${q.strict ? 'checked' : ''} /> Exiger les voyelles et accents exacts (sinon : tolérant aux voyelles arabes, majuscules et accents)</label>` : ''}
+        ${q.type === 'free' ? `
+          <label>Exemple de réponse (visible par vous, et par l'élève si la correction est affichée)</label>
+          <textarea data-f="modelAnswer" style="min-height:60px;">${esc(q.modelAnswer)}</textarea>` : ''}
+        <label>Explication / rappel de cours (affiché dans la correction)</label>
+        <input type="text" data-f="explanation" value="${esc(q.explanation)}" />
+      </div>`;
+    }
+
+    function bindEditor() {
+      const d = draft;
+      const sync = () => {
+        ['title', 'level', 'dueDate', 'status', 'instructions'].forEach((k) => { d[k] = document.getElementById(k).value; });
+        d.showCorrection = document.getElementById('showCorrection').checked;
+        d.shuffle = document.getElementById('shuffle').checked;
+        document.querySelectorAll('.editor-q').forEach((box) => {
+          const q = d.questions[Number(box.dataset.i)];
+          box.querySelectorAll('[data-f]').forEach((el) => {
+            const f = el.dataset.f;
+            if (f === 'accepted') q.accepted = el.value.split('\n');
+            else if (f === 'strict') q.strict = el.checked;
+            else if (f === 'points') q.points = Number(el.value);
+            else q[f] = el.value;
+          });
+          box.querySelectorAll('[data-opt]').forEach((el) => { q.options[Number(el.dataset.opt)] = el.value; });
+          const c = box.querySelector('[data-correct]:checked');
+          if (c) q.correct = Number(c.dataset.correct);
+        });
+      };
+      const redraw = () => { sync(); drawEditor(); };
+      document.getElementById('back').addEventListener('click', () => { if (confirm('Quitter sans enregistrer ?')) renderList(); });
+      document.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => { sync(); d.questions.push(blankQ(b.dataset.add)); drawEditor(); window.scrollTo(0, document.body.scrollHeight); }));
+      document.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', () => { sync(); if (confirm('Supprimer cette question ?')) { d.questions.splice(Number(b.dataset.rm), 1); drawEditor(); } }));
+      document.querySelectorAll('[data-dup]').forEach((b) => b.addEventListener('click', () => { sync(); const i = Number(b.dataset.dup); const c = JSON.parse(JSON.stringify(d.questions[i])); delete c.id; d.questions.splice(i + 1, 0, c); drawEditor(); }));
+      const move = (i, by) => { sync(); const [q] = d.questions.splice(i, 1); d.questions.splice(i + by, 0, q); drawEditor(); };
+      document.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', () => move(Number(b.dataset.up), -1)));
+      document.querySelectorAll('[data-down]').forEach((b) => b.addEventListener('click', () => move(Number(b.dataset.down), 1)));
+      document.querySelectorAll('[data-addopt]').forEach((b) => b.addEventListener('click', () => { sync(); d.questions[Number(b.closest('.editor-q').dataset.i)].options.push(''); drawEditor(); }));
+      document.querySelectorAll('[data-rmopt]').forEach((b) => b.addEventListener('click', () => {
+        sync(); const q = d.questions[Number(b.closest('.editor-q').dataset.i)]; const oi = Number(b.dataset.rmopt);
+        q.options.splice(oi, 1); if (q.correct >= q.options.length) q.correct = 0; else if (q.correct > oi) q.correct--; drawEditor();
+      }));
+      document.getElementById('bulk').addEventListener('click', () => { sync(); renderBulk(); });
+      const del = document.getElementById('del');
+      if (del) del.addEventListener('click', async () => {
+        if (!confirm('Supprimer ce devoir ET tous les rendus des élèves ? Action irréversible.')) return;
+        try { await api('/api/admin-assignments', { action: 'delete', code: d.code }); renderList(); } catch (e) { toast(e.message); }
+      });
+      document.getElementById('save').addEventListener('click', async () => {
+        sync();
+        const payload = JSON.parse(JSON.stringify(d));
+        payload.questions.forEach((q) => { if (q.type === 'short') q.accepted = (q.accepted || []).map((a) => a.trim()).filter(Boolean); });
+        try {
+          const { assignment } = await api('/api/admin-assignments', { assignment: payload });
+          toast('Devoir enregistré');
+          renderSaved(assignment);
+        } catch (e) { document.getElementById('err').textContent = e.message; }
+      });
+    }
+
+    function renderSaved(a) {
+      app.innerHTML = `
+        <div class="card" style="text-align:center;">
+          <div class="level-badge">Enregistré ✓</div>
+          <h2>${esc(a.title)}</h2>
+          <p class="muted">Code du devoir</p><div class="score-big" style="letter-spacing:4px;">${esc(a.code)}</div>
+          <p class="muted">Lien à coller dans Google Classroom (Devoir ou Annonce) :</p>
+          <input type="text" readonly value="${esc(studentLink(a.code))}" onclick="this.select()" />
+          <div class="btn-row" style="justify-content:center; margin-top:16px;">
+            <button class="btn btn-primary btn-inline" id="cp" style="margin:0;">Copier le lien</button>
+            <button class="btn btn-secondary btn-inline" id="ls">Retour à la liste</button></div>
+          ${a.status !== 'open' ? '<p class="error">⚠️ Ce devoir n\'est pas « Ouvert » : les élèves ne peuvent pas le voir.</p>' : ''}
+        </div>`;
+      document.getElementById('cp').addEventListener('click', () => copy(studentLink(a.code)));
+      document.getElementById('ls').addEventListener('click', renderList);
+    }
+
+    // ----- Import rapide -----
+    const BULK_HELP = `Collez vos questions, séparées par une ligne vide :
+
+Quelle est cette lettre ؟
+@ ب
+* بَاء
+- تَاء
+- ثَاء
+! La lettre ب se prononce "ba".
+
+Traduis "livre" en arabe
+= كِتَاب | كتاب
+# 2
+
+Écris une phrase avec le mot مَدْرَسَة
+
+Règles :  * = bonne réponse (QCM)   - = mauvais choix   = = réponse courte (plusieurs possibles avec |)
+@ = grand texte arabe   ! = explication   # = points   Sans choix ni "=" → réponse libre.`;
+
+    function parseBulk(text) {
+      return text.replace(/\r/g, '').split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean).map((block) => {
+        const q = { prompt: [], arabic: '', explanation: '', points: 1, options: [], correct: -1, accepted: null };
+        block.split('\n').forEach((raw) => {
+          const line = raw.trim();
+          const m = line.match(/^([*\-=@!#])\s*(.*)$/);
+          if (!m) return q.prompt.push(line);
+          const [, k, v] = m;
+          if (k === '*') { q.correct = q.options.length; q.options.push(v); }
+          else if (k === '-') q.options.push(v);
+          else if (k === '=') q.accepted = v.split('|').map((x) => x.trim()).filter(Boolean);
+          else if (k === '@') q.arabic = v;
+          else if (k === '!') q.explanation = v;
+          else if (k === '#') q.points = Number(v.replace(',', '.')) || 1;
+        });
+        const base = { prompt: q.prompt.join('\n'), arabic: q.arabic, explanation: q.explanation, points: q.points, strict: false, modelAnswer: '' };
+        if (q.options.length >= 2) return { ...base, type: 'qcm', options: q.options, correct: Math.max(0, q.correct), _noCorrect: q.correct < 0 };
+        if (q.accepted && q.accepted.length) return { ...base, type: 'short', accepted: q.accepted };
+        return { ...base, type: 'free' };
+      });
+    }
+
+    function renderBulk() {
+      app.innerHTML = `
+        <div class="card"><h2 style="margin-top:0;">⚡ Import rapide</h2>
+          <p class="muted">Tapez ou collez vos questions en texte simple : elles seront converties automatiquement (vous pourrez ensuite les ajuster).</p>
+          <textarea id="bulk-text" style="min-height:340px; font-family:monospace; direction:ltr;" placeholder="${esc(BULK_HELP)}"></textarea>
+          <div class="error" id="err"></div>
+          <div class="btn-row" style="margin-top:14px;">
+            <button class="btn btn-primary btn-inline" id="go" style="margin:0;">Ajouter ces questions</button>
+            <button class="btn btn-secondary btn-inline" id="cancel">Annuler</button></div></div>`;
+      document.getElementById('cancel').addEventListener('click', drawEditor);
+      document.getElementById('go').addEventListener('click', () => {
+        const qs = parseBulk(document.getElementById('bulk-text').value);
+        if (!qs.length) { document.getElementById('err').textContent = 'Aucune question détectée.'; return; }
+        const bad = qs.findIndex((q) => q._noCorrect);
+        if (bad >= 0 && !confirm(`La question ${bad + 1} n'a pas de bonne réponse marquée avec * : le premier choix sera utilisé. Continuer ?`)) return;
+        qs.forEach((q) => delete q._noCorrect);
+        draft.questions = draft.questions.filter((q) => q.prompt.trim() || q.options?.some((o) => o.trim())).concat(qs);
+        drawEditor();
+      });
+    }
+
+    // ================= Résultats et correction =================
+    let R = null; // { assignment, submissions, stats }
+    async function renderResults(code, openKey) {
+      app.innerHTML = '<div class="card"><p class="muted">Chargement…</p></div>';
+      try { R = await api(`/api/admin-submissions?code=${code}`); } catch (e) { if (e.message !== '401') toast(e.message); return; }
+      openKey ? renderGrade(openKey) : drawResults();
+    }
+
+    const pctClass = (p) => (p < 0.4 ? 'low' : p < 0.7 ? 'mid' : '');
+
+    function drawResults() {
+      const { assignment: a, submissions: subs, stats } = R;
+      const done = subs.filter((s) => s.result.max > 0);
+      const avg = done.length ? done.reduce((t, s) => t + s.result.score / s.result.max, 0) / done.length : null;
+      const best = done.length ? Math.max(...done.map((s) => s.result.score)) : null;
+      app.innerHTML = `
+        <div class="card">
+          <div class="toolbar"><button class="btn btn-secondary btn-inline" id="back">← Retour</button>
+            <h2 style="margin:0; flex:1;">${esc(a.title)} <span class="pill ${STATUS[a.status][1]}">${STATUS[a.status][0]}</span></h2>
+            <button class="btn btn-secondary btn-inline" id="edit">Modifier</button>
+            <button class="btn btn-secondary btn-inline" id="csv">Exporter CSV</button>
+            <button class="btn btn-secondary btn-inline" id="print">Imprimer</button></div>
+          <p class="muted">Code <strong>${esc(a.code)}</strong> · lien élève : <a class="link" href="${esc(studentLink(a.code))}" target="_blank" style="text-decoration:underline;">${esc(studentLink(a.code))}</a>
+            <button class="icon-btn" id="cp">Copier</button></p>
+        </div>
+        <div class="stat-cards">
+          <div class="stat-card"><div class="num">${subs.length}</div><div class="lbl">Rendus</div></div>
+          <div class="stat-card"><div class="num">${avg === null ? '—' : Math.round(avg * 100) + ' %'}</div><div class="lbl">Moyenne</div></div>
+          <div class="stat-card"><div class="num">${best === null ? '—' : fmt(best) + '/' + fmt(done[0].result.max)}</div><div class="lbl">Meilleure note</div></div>
+          <div class="stat-card"><div class="num">${subs.filter((s) => s.result.pending).length}</div><div class="lbl">À corriger</div></div>
+        </div>
+
+        <div class="card"><h3 style="margin-top:0;">Rendus des élèves</h3>
+          ${subs.length ? `<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Prénom</th><th>Note</th><th>%</th><th>État</th><th>Date</th><th class="no-print"></th></tr></thead><tbody>
+            ${subs.map((s) => {
+              const p = s.result.max ? s.result.score / s.result.max : 0;
+              return `<tr><td>${esc(s.lastName)}</td><td>${esc(s.firstName)}</td>
+                <td><strong>${fmt(s.result.score)}</strong> / ${fmt(s.result.max)}</td>
+                <td><div class="bar ${pctClass(p)}"><span style="width:${Math.round(p * 100)}%"></span></div></td>
+                <td>${s.result.pending ? '<span class="pill pill-gold">À corriger</span>' : s.gradedAt ? '<span class="pill pill-green">Corrigé</span>' : '<span class="pill pill-green">Auto</span>'}
+                    ${s.late ? '<span class="pill pill-red">Retard</span>' : ''}</td>
+                <td class="muted">${new Date(s.date).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                <td class="no-print"><button class="icon-btn" data-open="${esc(s.key)}">Voir / corriger</button>
+                    <button class="icon-btn" data-reset="${esc(s.key)}" title="Supprimer le rendu pour que l'élève puisse refaire le devoir">Réinitialiser</button></td></tr>`;
+            }).join('')}</tbody></table></div>` : '<p class="muted">Aucun rendu pour le moment.</p>'}
+        </div>
+
+        <div class="card"><h3 style="margin-top:0;">Analyse par question</h3>
+          <p class="muted">Repérez ce qui n'a pas été compris pour le revoir en classe.</p>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>Question</th><th>Réussite</th><th>Erreur fréquente</th></tr></thead><tbody>
+          ${a.questions.map((q, i) => {
+            const st = stats[i];
+            const p = st.answered ? st.right / st.answered : null;
+            let common = '';
+            if (q.type === 'qcm') {
+              const wrong = Object.entries(st.distribution).filter(([k]) => k !== '—' && Number(k) !== q.correct).sort((x, y) => y[1] - x[1])[0];
+              if (wrong) common = `<span class="${isAr(q.options[wrong[0]]) ? 'arabic' : ''}">${esc(q.options[wrong[0]])}</span> (${wrong[1]} élève${wrong[1] > 1 ? 's' : ''})`;
+            }
+            return `<tr><td>${i + 1}</td><td style="max-width:360px;">${esc(q.prompt.slice(0, 90))}${q.prompt.length > 90 ? '…' : ''} ${q.arabic ? `<span class="arabic">${esc(q.arabic)}</span>` : ''}</td>
+              <td>${p === null ? '<span class="muted">—</span>' : `<div style="display:flex; gap:8px; align-items:center;"><div class="bar ${pctClass(p)}" style="flex:1;"><span style="width:${Math.round(p * 100)}%"></span></div><strong>${Math.round(p * 100)} %</strong></div>`}</td>
+              <td class="muted">${common || '—'}</td></tr>`;
+          }).join('')}</tbody></table></div>
+        </div>`;
+      document.getElementById('back').addEventListener('click', renderList);
+      document.getElementById('edit').addEventListener('click', () => renderEditor(a.code));
+      document.getElementById('cp').addEventListener('click', () => copy(studentLink(a.code)));
+      document.getElementById('print').addEventListener('click', () => window.print());
+      document.getElementById('csv').addEventListener('click', exportCsv);
+      document.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => renderGrade(b.dataset.open)));
+      document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Supprimer ce rendu ? L\'élève pourra refaire le devoir.')) return;
+        try { await api('/api/admin-submissions', { action: 'delete', code: a.code, key: b.dataset.reset }); renderResults(a.code); } catch (e) { toast(e.message); }
+      }));
+    }
+
+    function exportCsv() {
+      const { assignment: a, submissions: subs } = R;
+      const head = ['Nom', 'Prénom', 'Note', 'Sur', 'Pourcentage', 'État', 'Retard', 'Date', 'Commentaire', ...a.questions.map((_, i) => `Q${i + 1}`)];
+      const rows = subs.map((s) => [
+        s.lastName, s.firstName, fmt(s.result.score), fmt(s.result.max), s.result.max ? Math.round((s.result.score / s.result.max) * 100) + '%' : '',
+        s.result.pending ? 'À corriger' : 'Corrigé', s.late ? 'Oui' : '', new Date(s.date).toLocaleString('fr-FR'), s.comment || '',
+        ...a.questions.map((q) => { const p = s.result.perQuestion[q.id].points; return p === null ? '?' : fmt(p); }),
+      ]);
+      const csv = '﻿' + [head, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      const el = document.createElement('a'); el.href = url; el.download = `devoir-${a.code}-${new Date().toISOString().slice(0, 10)}.csv`; el.click(); URL.revokeObjectURL(url);
+    }
+
+    // ----- Correction d'un rendu -----
+    function renderGrade(key) {
+      const { assignment: a, submissions: subs } = R;
+      const idx = subs.findIndex((s) => s.key === key);
+      const s = subs[idx];
+      if (!s) return drawResults();
+      const nextPending = subs.find((x, i) => i !== idx && x.result.pending);
+      app.innerHTML = `
+        <div class="card">
+          <div class="toolbar"><button class="btn btn-secondary btn-inline" id="back">← Liste des rendus</button>
+            <h2 style="margin:0; flex:1;">${esc(s.firstName)} ${esc(s.lastName)}</h2>
+            <span class="score-big" style="font-size:1.8rem;" id="total">${fmt(s.result.score)} / ${fmt(s.result.max)}</span></div>
+          <p class="muted">${esc(a.title)} · rendu le ${new Date(s.date).toLocaleString('fr-FR')} ${s.late ? '<span class="pill pill-red">en retard</span>' : ''}</p>
+        </div>
+        <div class="card">
+          ${a.questions.map((q, i) => {
+            const r = s.result.perQuestion[q.id];
+            const cls = r.points === null ? 'wait' : r.correct ? 'ok' : 'ko';
+            const ans = s.answers[q.id];
+            const manual = typeof s.manual?.[q.id] === 'number' ? s.manual[q.id] : '';
+            let shown;
+            if (q.type === 'qcm') shown = ans === undefined ? '<em class="muted">Sans réponse</em>' : `<span class="${isAr(q.options[ans]) ? 'arabic' : ''}">${esc(q.options[ans])}</span> ${ans === q.correct ? '✅' : '❌'}`;
+            else shown = ans ? `<span style="white-space:pre-wrap;" class="${isAr(ans) ? 'arabic' : ''}">${esc(ans)}</span>` : '<em class="muted">Sans réponse</em>';
+            let expected = '';
+            if (q.type === 'qcm') expected = `Bonne réponse : <strong class="${isAr(q.options[q.correct]) ? 'arabic' : ''}">${esc(q.options[q.correct])}</strong>`;
+            if (q.type === 'short') expected = `Acceptées : <strong>${esc(q.accepted.join(' / '))}</strong>`;
+            if (q.type === 'free' && q.modelAnswer) expected = `Exemple : ${esc(q.modelAnswer)}`;
+            return `<div class="q-block ${cls}">
+              <div class="question-number">Question ${i + 1} · ${fmt(q.points)} pt${q.points > 1 ? 's' : ''}${r.source === 'manual' ? ' · modifié à la main' : ''}</div>
+              <div class="question-prompt" style="white-space:pre-wrap;">${esc(q.prompt)} ${q.arabic ? `<span class="arabic">${esc(q.arabic)}</span>` : ''}</div>
+              <p style="font-size:1.1rem;">${shown}</p>
+              ${expected ? `<p class="muted">${expected}</p>` : ''}
+              <div class="btn-row"><label style="margin:0;">Points :</label>
+                <input type="number" data-pts="${q.id}" min="0" max="${q.points}" step="0.25" style="width:100px;" value="${manual}"
+                  placeholder="${r.points === null ? '?' : fmt(r.points)}" />
+                <span class="muted">/ ${fmt(q.points)} ${q.type === 'free' ? '(à saisir)' : '(vide = correction automatique)'}</span>
+                ${q.type === 'free' ? `<button class="icon-btn" data-full="${q.id}" data-max="${q.points}">Tout juste</button><button class="icon-btn" data-full="${q.id}" data-max="0">Zéro</button>` : ''}</div>
+            </div>`;
+          }).join('')}
+          <label>Commentaire pour l'élève</label>
+          <textarea id="comment" placeholder="Bravo ! Revoir la leçon sur…">${esc(s.comment || '')}</textarea>
+          <div class="error" id="err"></div>
+          <div class="btn-row" style="margin-top:16px;">
+            <button class="btn btn-primary btn-inline" id="save" style="margin:0;">💾 Enregistrer</button>
+            ${nextPending ? '<button class="btn btn-secondary btn-inline" id="save-next">Enregistrer et passer au suivant à corriger →</button>' : ''}</div>
+        </div>`;
+      document.getElementById('back').addEventListener('click', drawResults);
+      document.querySelectorAll('[data-full]').forEach((b) => b.addEventListener('click', () => {
+        document.querySelector(`[data-pts="${b.dataset.full}"]`).value = b.dataset.max;
+      }));
+      const save = async (goNext) => {
+        const manualPts = {};
+        document.querySelectorAll('[data-pts]').forEach((el) => { if (el.value !== '') manualPts[el.dataset.pts] = el.value; });
+        try {
+          await api('/api/admin-submissions', { action: 'grade', code: a.code, key: s.key, manual: manualPts, comment: document.getElementById('comment').value });
+          toast('Correction enregistrée');
+          await renderResults(a.code, goNext ? nextPending.key : null);
+        } catch (e) { document.getElementById('err').textContent = e.message; }
+      };
+      document.getElementById('save').addEventListener('click', () => save(false));
+      const sn = document.getElementById('save-next');
+      if (sn) sn.addEventListener('click', () => save(true));
+    }
+
+    token() ? renderList() : renderLogin();
+  </script>
+</body>
+</html>

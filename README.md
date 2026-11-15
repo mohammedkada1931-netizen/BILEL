@@ -26,6 +26,27 @@ D'après les manuels envoyés, la progression du test suit celle de vos supports
 
 Les questions actuelles sont un premier jeu de test générique, basé sur une progression classique de l'arabe pour enfants. **Vous pourrez facilement les remplacer ou les enrichir** avec les vraies leçons de vos livres (voir plus bas).
 
+## Devoirs avec correction automatique
+
+Nouveau module pour gagner du temps sur la correction.
+
+**Côté professeur** — `/admin-devoirs.html` (même mot de passe que l'espace direction) :
+
+1. **Nouveau devoir** : titre, niveau, date limite, consignes.
+2. Ajoutez des questions de 3 types :
+   - **Choix multiple** — corrigé automatiquement ;
+   - **Réponse courte** — corrigée automatiquement (plusieurs réponses acceptées ; tolérant aux voyelles arabes, accents et majuscules, sauf si vous cochez « exact ») ;
+   - **Réponse libre** — vous donnez les points à la main (boutons « Tout juste » / « Zéro »).
+3. **⚡ Import rapide** : collez vos questions en texte simple (`*` bonne réponse, `-` mauvais choix, `=` réponse courte, `@` grand texte arabe, `!` explication, `#` points).
+4. Enregistrez : vous obtenez un **code** et un **lien** à coller dans **Google Classroom** (annonce ou devoir).
+5. **Résultats** : notes calculées automatiquement, état « à corriger », commentaire pour l'élève, analyse par question (ce qui n'a pas été compris), export CSV, impression. « Réinitialiser » supprime un rendu pour qu'un élève puisse refaire le devoir.
+
+**Côté élève** — `/devoirs.html` : liste des devoirs ouverts ou lien direct `devoirs.html?c=CODE`. Il rend le devoir une seule fois, voit sa note et la correction immédiatement (désactivable par devoir), et peut retrouver sa note plus tard avec son nom + le code. L'ordre des choix est mélangé pour limiter la copie.
+
+Les bonnes réponses ne sont jamais envoyées au navigateur de l'élève avant le rendu : la correction se fait côté serveur.
+
+Fonctions ajoutées : `admin-assignments`, `admin-submissions`, `assignments`, `assignment-submit` (stockage Netlify Blobs, rien de plus à configurer).
+
 ## Configuration avant mise en ligne (Netlify)
 
 Le site est prêt à être déployé sur Netlify (fichier `netlify.toml` déjà configuré, fonctions serverless + stockage Netlify Blobs pour les résultats — aucune base de données externe à payer/configurer).

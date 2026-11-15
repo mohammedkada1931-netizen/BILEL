@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Devoirs — École Arabe de la Mosquée Fath Brive</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1>Devoirs — École Arabe de la Mosquée Fath Brive</h1>
+    <p class="arabic">الْوَاجِبَاتُ الْمَدْرَسِيَّة</p>
+    <div class="nav-links"><a href="index.html">Test de niveau</a><a href="devoirs.html">Devoirs</a></div>
+  </div>
+  <div class="page"><div id="app"></div></div>
+
+  <script type="module">
+    const app = document.getElementById('app');
+    const ID_KEY = 'ecole-arabe-hw-student';
+    const params = new URLSearchParams(location.search);
+
+    let student = loadStudent();
+    let assignment = null;
+    let answers = {};
+    let order = {}; // qid -> tableau d'index d'origine (ordre d'affichage mélangé)
+
+    function loadStudent() {
+      try { return JSON.parse(localStorage.getItem(ID_KEY)) || { firstName: '', lastName: '' }; } catch { return { firstName: '', lastName: '' }; }
+    }
+    function saveStudent() {
+      try { localStorage.setItem(ID_KEY, JSON.stringify(student)); } catch {}
+    }
+    const esc = (s) => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+    const isAr = (s) => /[؀-ۿ]/.test(s || '');
+    const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+    async function api(url, opts) {
+      const res = await fetch(url, opts);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { const e = new Error(data.error || `Erreur ${res.status}`); e.status = res.status; throw e; }
+      return data;
+    }
+
+    // ---------- Accueil : liste + saisie du code ----------
+    async function renderHome(err) {
+      app.innerHTML = `
+        <div class="card">
+          <h2 style="margin-top:0;">Mes devoirs</h2>
+          <p class="muted">Entre le code donné par ton professeur (ou clique sur un devoir ci-dessous).</p>
+          <form id="code-form" class="btn-row">
+            <input type="text" id="code" placeholder="CODE (ex : K7M2PX)" maxlength="12" style="flex:1; text-transform:uppercase; letter-spacing:2px;" />
+            <button class="btn btn-primary btn-inline" type="submit">Ouvrir</button>
+          </form>
+          <div class="error">${esc(err || '')}</div>
+        </div>
+        <div class="card"><h3 style="margin-top:0;">Devoirs en cours</h3><div id="list"><p class="muted">Chargement…</p></div></div>
+        <div class="card">
+          <h3 style="margin-top:0;">Retrouver ma note</h3>
+          <p class="muted">Déjà rendu un devoir ? Entre ton nom et le code pour voir ta note et la correction.</p>
+          <div class="grid-2">
+            <div><label>Prénom</label><input type="text" id="r-first" value="${esc(student.firstName)}" /></div>
+            <div><label>Nom</label><input type="text" id="r-last" value="${esc(student.lastName)}" /></div>
+          </div>
+          <label>Code du devoir</label><input type="text" id="r-code" maxlength="12" style="text-transform:uppercase;" />
+          <div class="error" id="r-err"></div>
+          <button class="btn btn-secondary" id="r-btn" style="margin-top:14px;">Voir ma note</button>
+        </div>`;
+      document.getElementById('code-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const c = document.getElementById('code').value.trim();
+        if (c) openAssignment(c);
+      });
+      document.getElementById('r-btn').addEventListener('click', async () => {
+        const f = document.getElementById('r-first').value.trim(), l = document.getElementById('r-last').value.trim();
+        const c = document.getElementById('r-code').value.trim();
+        const el = document.getElementById('r-err');
+        if (!f || !l || !c) { el.textContent = 'Remplis le prénom, le nom et le code.'; return; }
+        try {
+          const q = `code=${encodeURIComponent(c)}&firstName=${encodeURIComponent(f)}&lastName=${encodeURIComponent(l)}`;
+          const data = await api(`/api/assignment-submit?${q}`);
+          if (!data.exists) { el.textContent = 'Aucun rendu trouvé pour ce nom et ce code.'; return; }
+          student = { firstName: f, lastName: l }; saveStudent();
+          const a = await api(`/api/assignments?code=${encodeURIComponent(c)}`);
+          renderResult(a.assignment.title, data.result);
+        } catch (e) { el.textContent = e.message; }
+      });
+      try {
+        const { assignments } = await api('/api/assignments');
+        document.getElementById('list').innerHTML = assignments.length
+          ? assignments.map((a) => `
+            <div class="hw-item">
+              <div><h3>${esc(a.title)}</h3>
+                <span class="muted">${a.level ? esc(a.level) + ' · ' : ''}${a.questionCount} question${a.questionCount > 1 ? 's' : ''}${a.dueDate ? ' · à rendre pour le ' + esc(fmtDate(a.dueDate)) : ''}</span></div>
+              <button class="btn btn-secondary btn-inline" data-code="${esc(a.code)}">Faire le devoir</button>
+            </div>`).join('')
+          : '<p class="muted">Aucun devoir en cours pour le moment. 🎉</p>';
+        document.querySelectorAll('[data-code]').forEach((b) => b.addEventListener('click', () => openAssignment(b.dataset.code)));
+      } catch { document.getElementById('list').innerHTML = '<p class="error">Impossible de charger la liste.</p>'; }
+    }
+
+    async function openAssignment(code) {
+      try {
+        const data = await api(`/api/assignments?code=${encodeURIComponent(code.trim())}`);
+        if (data.closed) { renderHome('Ce devoir est fermé.'); return; }
+        assignment = data.assignment;
+        answers = {};
+        order = {};
+        assignment.questions.forEach((q) => {
+          if (q.type !== 'qcm') return;
+          const idx = q.options.map((_, i) => i);
+          if (assignment.shuffle) for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+          order[q.id] = idx;
+        });
+        history.replaceState(null, '', `?c=${assignment.code}`);
+        renderForm();
+      } catch (e) { renderHome(e.message); }
+    }
+
+    // ---------- Formulaire du devoir ----------
+    function renderForm(err) {
+      const a = assignment;
+      const total = a.questions.reduce((t, q) => t + q.points, 0);
+      app.innerHTML = `
+        <div class="card">
+          <span class="level-badge">${esc(a.level || 'Devoir')}</span>
+          <h2 style="margin:8px 0 4px;">${esc(a.title)}</h2>
+          <p class="muted">${a.questions.length} question${a.questions.length > 1 ? 's' : ''} · ${total} point${total > 1 ? 's' : ''}${a.dueDate ? ' · à rendre pour le ' + esc(fmtDate(a.dueDate)) : ''}</p>
+          ${a.instructions ? `<div class="feedback" style="white-space:pre-wrap;">${esc(a.instructions)}</div>` : ''}
+          <div class="grid-2">
+            <div><label>Prénom *</label><input type="text" id="firstName" autocomplete="given-name" value="${esc(student.firstName)}" /></div>
+            <div><label>Nom *</label><input type="text" id="lastName" autocomplete="family-name" value="${esc(student.lastName)}" /></div>
+          </div>
+        </div>
+        <div class="card" id="questions">
+          ${a.questions.map((q, i) => `
+            <div class="q-block">
+              <div class="question-number">Question ${i + 1} · ${q.points} pt${q.points > 1 ? 's' : ''}</div>
+              <div class="question-prompt" style="white-space:pre-wrap;">${esc(q.prompt)}</div>
+              ${q.arabic ? `<div class="question-arabic arabic">${esc(q.arabic)}</div>` : ''}
+              ${q.type === 'qcm'
+                ? `<div class="options">${order[q.id].map((oi) => `<button type="button" class="option${isAr(q.options[oi]) ? ' arabic-option' : ''}${answers[q.id] === oi ? ' selected' : ''}" data-q="${q.id}" data-o="${oi}">${esc(q.options[oi])}</button>`).join('')}</div>`
+                : q.type === 'short'
+                  ? `<input type="text" data-text="${q.id}" value="${esc(answers[q.id] || '')}" placeholder="Ta réponse" />`
+                  : `<textarea data-text="${q.id}" placeholder="Écris ta réponse ici">${esc(answers[q.id] || '')}</textarea>`}
+            </div>`).join('')}
+          <div class="error" id="form-err">${esc(err || '')}</div>
+          <button class="btn btn-primary" id="submit-btn">Rendre mon devoir</button>
+          <p class="muted" style="font-size:0.82rem; text-align:center;">Tu ne pourras rendre ce devoir qu'une seule fois.</p>
+        </div>`;
+      document.querySelectorAll('.option[data-q]').forEach((b) => b.addEventListener('click', () => {
+        answers[b.dataset.q] = Number(b.dataset.o);
+        document.querySelectorAll(`.option[data-q="${b.dataset.q}"]`).forEach((x) => x.classList.toggle('selected', x === b));
+      }));
+      document.querySelectorAll('[data-text]').forEach((el) => el.addEventListener('input', () => { answers[el.dataset.text] = el.value; }));
+      document.getElementById('submit-btn').addEventListener('click', submit);
+    }
+
+    async function submit() {
+      const firstName = document.getElementById('firstName').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const errEl = document.getElementById('form-err');
+      if (!firstName || !lastName) { errEl.textContent = 'Merci de renseigner ton prénom et ton nom (en haut de la page).'; window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+      const missing = assignment.questions.filter((q) => answers[q.id] === undefined || String(answers[q.id]).trim() === '').length;
+      if (missing && !confirm(`Il reste ${missing} question${missing > 1 ? 's' : ''} sans réponse. Rendre quand même ?`)) return;
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = 'Envoi…';
+      try {
+        const data = await api('/api/assignment-submit', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: assignment.code, firstName, lastName, answers }),
+        });
+        student = { firstName, lastName }; saveStudent();
+        history.replaceState(null, '', location.pathname);
+        renderResult(assignment.title, data.result, true);
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Rendre mon devoir';
+        errEl.textContent = e.message;
+      }
+    }
+
+    // ---------- Résultat + correction ----------
+    function renderResult(title, r, justSubmitted) {
+      const pct = r.max ? r.score / r.max : 0;
+      const emoji = r.pending ? '📨' : pct >= 0.8 ? '🌟' : pct >= 0.5 ? '👍' : '💪';
+      app.innerHTML = `
+        <div class="card result-hero">
+          <p class="muted">${justSubmitted ? 'Devoir rendu ! ' : ''}${esc(title)}</p>
+          <div class="score-big">${emoji} ${r.score} / ${r.max}</div>
+          ${r.pending ? '<p class="muted">Certaines réponses seront corrigées par ton professeur : la note peut encore augmenter. Reviens la consulter avec « Retrouver ma note ».</p>' : ''}
+          ${r.late ? '<p><span class="pill pill-red">Rendu en retard</span></p>' : ''}
+          ${r.comment ? `<div class="feedback" style="text-align:left; white-space:pre-wrap;"><strong>Commentaire du professeur :</strong><br>${esc(r.comment)}</div>` : ''}
+        </div>
+        ${r.questions ? `<div class="card"><h3 style="margin-top:0;">Correction</h3>${r.questions.map(renderCorrection).join('')}</div>`
+          : '<div class="card"><p class="muted">Ton professeur te donnera la correction en classe.</p></div>'}
+        <div class="card" style="text-align:center;"><a class="btn btn-secondary" style="display:inline-block; text-decoration:none;" href="devoirs.html">Retour aux devoirs</a></div>`;
+      window.scrollTo({ top: 0 });
+    }
+
+    function renderCorrection(q, i) {
+      const pts = q.result.points;
+      const cls = pts === null ? 'wait' : q.result.correct ? 'ok' : 'ko';
+      let body = '';
+      if (q.type === 'qcm') {
+        body = `<div class="options">${q.options.map((o, oi) => `<div class="option${isAr(o) ? ' arabic-option' : ''}${oi === q.correct ? ' right' : oi === q.answer ? ' wrong' : ''}">${esc(o)}${oi === q.answer ? ' ← ta réponse' : ''}</div>`).join('')}</div>`;
+      } else if (q.type === 'short') {
+        body = `<p>Ta réponse : <strong class="${isAr(q.answer) ? 'arabic' : ''}">${esc(q.answer || '— (vide)')}</strong></p>
+                ${pts < q.points ? `<p>Réponse attendue : <strong class="${isAr(q.accepted[0]) ? 'arabic' : ''}">${esc(q.accepted.join('  /  '))}</strong></p>` : ''}`;
+      } else {
+        body = `<p>Ta réponse :</p><div class="feedback" style="white-space:pre-wrap;">${esc(q.answer || '— (vide)')}</div>
+                ${q.modelAnswer ? `<p class="muted">Exemple de réponse : ${esc(q.modelAnswer)}</p>` : ''}`;
+      }
+      return `<div class="q-block ${cls}">
+        <div class="question-number">Question ${i + 1} · ${pts === null ? 'à corriger' : pts + ' / ' + q.points + ' pt'}</div>
+        <div class="question-prompt" style="white-space:pre-wrap;">${esc(q.prompt)}</div>
+        ${q.arabic ? `<div class="question-arabic arabic">${esc(q.arabic)}</div>` : ''}
+        ${body}
+        ${q.explanation ? `<div class="feedback">💡 ${esc(q.explanation)}</div>` : ''}
+      </div>`;
+    }
+
+    const c = params.get('c');
+    if (c) openAssignment(c); else renderHome();
+  </script>
+</body>
+</html>
